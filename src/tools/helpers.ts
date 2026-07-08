@@ -5,6 +5,8 @@
 
 /** MCP tool result shape (subset we use). */
 export interface ToolResult {
+  // Index signature required for assignability to the SDK's CallToolResult.
+  [key: string]: unknown;
   content: Array<{ type: "text"; text: string }>;
   isError?: boolean;
 }
