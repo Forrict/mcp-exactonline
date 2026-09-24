@@ -1,7 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { ExactClient } from "../client.js";
-import { okJson, errText } from "./helpers.js";
+import { okJson, errText, divisionParam } from "./helpers.js";
 
 /**
  * Escape a value for use inside an OData string literal (single quotes).
@@ -98,6 +98,7 @@ export function registerCrmTools(server: McpServer, client: ExactClient): void {
         "Use `is_supplier` to filter to suppliers (true) or non-suppliers (false). " +
         "Returns key fields (ID, Code, Name, Status, contact + address + VAT details), ordered by Name.",
       inputSchema: {
+        division: divisionParam,
         search: z
           .string()
           .optional()
@@ -138,7 +139,7 @@ export function registerCrmTools(server: McpServer, client: ExactClient): void {
           filters.push(`IsSupplier eq ${is_supplier ? "true" : "false"}`);
         }
         const max = top ?? 50;
-        const path = await client.divisionPath("crm/Accounts");
+        const path = await client.divisionPath("crm/Accounts", args.division);
         const result = await client.getAll(
           path,
           {
@@ -165,6 +166,7 @@ export function registerCrmTools(server: McpServer, client: ExactClient): void {
         "chamber of commerce number, payment conditions, credit lines, language and currency. " +
         "Backed by GET /{division}/crm/Accounts(guid'{id}'). Use exact_list_accounts first to find the id.",
       inputSchema: {
+        division: divisionParam,
         id: z
           .string()
           .describe("The account GUID (ID field from exact_list_accounts)."),
@@ -173,7 +175,7 @@ export function registerCrmTools(server: McpServer, client: ExactClient): void {
     async (args) => {
       try {
         const { id } = args;
-        const path = await client.divisionPath(`crm/Accounts(guid'${id}')`);
+        const path = await client.divisionPath(`crm/Accounts(guid'${id}')`, args.division);
         const result = await client.request("GET", path, {
           params: { $select: ACCOUNT_DETAIL_SELECT },
         });
@@ -195,6 +197,7 @@ export function registerCrmTools(server: McpServer, client: ExactClient): void {
         "`country` must be a 2-letter ISO country code (e.g. 'NL', 'DE'). " +
         "Returns the newly created account record.",
       inputSchema: {
+        division: divisionParam,
         name: z.string().describe("Account name (required)."),
         status: z
           .enum(["C", "P", "S", "A"])
@@ -240,7 +243,7 @@ export function registerCrmTools(server: McpServer, client: ExactClient): void {
         }
         if (args.remarks !== undefined) body.Remarks = args.remarks;
 
-        const path = await client.divisionPath("crm/Accounts");
+        const path = await client.divisionPath("crm/Accounts", args.division);
         const result = await client.request("POST", path, { body });
         return okJson(result);
       } catch (e) {
@@ -260,6 +263,7 @@ export function registerCrmTools(server: McpServer, client: ExactClient): void {
         "`country` must be a 2-letter ISO country code. Exact returns no content on success, " +
         "so this reports a success message rather than the updated record — re-read with exact_get_account to confirm.",
       inputSchema: {
+        division: divisionParam,
         id: z.string().describe("The account GUID to update (required)."),
         name: z.string().optional().describe("Account name."),
         status: z
@@ -307,7 +311,7 @@ export function registerCrmTools(server: McpServer, client: ExactClient): void {
         }
         if (args.remarks !== undefined) body.Remarks = args.remarks;
 
-        const path = await client.divisionPath(`crm/Accounts(guid'${args.id}')`);
+        const path = await client.divisionPath(`crm/Accounts(guid'${args.id}')`, args.division);
         const result = await client.request<unknown>("PUT", path, { body });
         if (result === undefined) {
           return okJson({
@@ -334,6 +338,7 @@ export function registerCrmTools(server: McpServer, client: ExactClient): void {
         "the contact's first OR last name. Returns id, linked account, name, email, phone/mobile, " +
         "job title and whether the contact is the account's main contact.",
       inputSchema: {
+        division: divisionParam,
         account_id: z
           .string()
           .optional()
@@ -362,7 +367,7 @@ export function registerCrmTools(server: McpServer, client: ExactClient): void {
           );
         }
         const max = top ?? 50;
-        const path = await client.divisionPath("crm/Contacts");
+        const path = await client.divisionPath("crm/Contacts", args.division);
         const result = await client.getAll(
           path,
           {
@@ -389,6 +394,7 @@ export function registerCrmTools(server: McpServer, client: ExactClient): void {
         "`account_id` (GUID), `first_name` and `last_name` are required; the rest are optional. " +
         "Returns the newly created contact record.",
       inputSchema: {
+        division: divisionParam,
         account_id: z
           .string()
           .describe("GUID of the account this contact belongs to (required)."),
@@ -415,7 +421,7 @@ export function registerCrmTools(server: McpServer, client: ExactClient): void {
         if (args.mobile !== undefined) body.Mobile = args.mobile;
         if (args.job_title !== undefined) body.JobTitleDescription = args.job_title;
 
-        const path = await client.divisionPath("crm/Contacts");
+        const path = await client.divisionPath("crm/Contacts", args.division);
         const result = await client.request("POST", path, { body });
         return okJson(result);
       } catch (e) {

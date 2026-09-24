@@ -1,7 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { ExactClient } from "../client.js";
-import { okJson, errText } from "./helpers.js";
+import { okJson, errText, divisionParam } from "./helpers.js";
 
 // Re-export helpers so phase-2 modules can import them from here if preferred.
 export { okJson, errText } from "./helpers.js";
@@ -65,6 +65,7 @@ export function registerSystemTools(
         "Optional OData params: `filter` ($filter), `select` ($select, comma-separated), " +
         "`orderby` ($orderby), and `top` (max 500). Results follow __next pagination up to `top`/500 rows.",
       inputSchema: {
+        division: divisionParam,
         resource: z
           .string()
           .describe(
@@ -94,7 +95,7 @@ export function registerSystemTools(
     async (args) => {
       try {
         const { resource, filter, select, orderby, top } = args;
-        const path = await client.divisionPath(resource);
+        const path = await client.divisionPath(resource, args.division);
         const max = top ?? 500;
         const result = await client.getAll(
           path,

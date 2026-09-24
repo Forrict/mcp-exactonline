@@ -5,8 +5,13 @@ import {
   type TokenStore,
 } from "./tokenStore.js";
 
-/** Refresh when the access token expires within this many milliseconds. */
-const SAFETY_MARGIN_MS = 60_000;
+/**
+ * Refresh when the access token expires within this many milliseconds.
+ * Exact only allows a refresh within ~30 seconds before expiry; asking
+ * earlier fails with "Rate limit exceeded: access_token not expired", so
+ * this margin must stay well below 30s.
+ */
+const SAFETY_MARGIN_MS = 15_000;
 
 /** Default Exact access token lifetime (~10 minutes) if not returned. */
 const DEFAULT_EXPIRES_IN_S = 600;
@@ -20,6 +25,13 @@ interface TokenResponse {
 
 export interface OAuthError extends Error {
   code?: string;
+  description?: string;
+}
+
+/** Exact refuses to refresh while the current access token is still valid. */
+function isNotExpiredRefusal(err: unknown): boolean {
+  const description = (err as OAuthError).description ?? "";
+  return /not expired/i.test(description);
 }
 
 function oauthUrl(config: Config, kind: "auth" | "token"): string {
@@ -79,6 +91,7 @@ async function postToken(
       }${errObj.error_description ? ` - ${errObj.error_description}` : ""}`
     );
     err.code = errObj.error;
+    err.description = errObj.error_description;
     if (errObj.error === "invalid_grant") {
       err.message +=
         "\nThe refresh/authorization grant is no longer valid. Re-authorize (`npm run auth` locally, or reconnect the connector in Claude when running on Lambda).";
@@ -175,6 +188,9 @@ export class OAuthManager {
     try {
       next = await this.refreshWith(current);
     } catch (err) {
+      // Exact says the current access token is still valid (its clock runs
+      // slightly behind ours): keep using it instead of failing the call.
+      if (isNotExpiredRefusal(err) && current.access_token) return current;
       // Lost a race with another process: it consumed our refresh token and
       // stored a new one in the meantime. Adopt (or refresh with) that one.
       if ((err as OAuthError).code !== "invalid_grant") throw err;

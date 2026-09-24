@@ -2,7 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { ExactClient } from "../client.js";
 import { toExactDate } from "../client.js";
-import { okJson, errText } from "./helpers.js";
+import { okJson, errText, divisionParam } from "./helpers.js";
 
 /**
  * Register the "sales" tools on the MCP server. These cover sales invoices
@@ -27,6 +27,7 @@ export function registerSalesTools(
         "20=open, 50=processed). Use `top` to cap the number of rows (default 50, max 500). Returns key " +
         "fields per invoice including totals (AmountDC, VATAmountDC), currency, and status description.",
       inputSchema: {
+        division: divisionParam,
         date_from: z
           .string()
           .optional()
@@ -80,9 +81,7 @@ export function registerSalesTools(
         }
 
         const max = top ?? 50;
-        const path = await client.divisionPath(
-          "salesinvoice/SalesInvoices"
-        );
+        const path = await client.divisionPath("salesinvoice/SalesInvoices", args.division);
         const result = await client.getAll(
           path,
           {
@@ -112,6 +111,7 @@ export function registerSalesTools(
         "Returns an object { invoice, lines } where `invoice` is the header and `lines` is the array " +
         "of line items (item, description, quantity, unit price, amounts, VAT, GL account).",
       inputSchema: {
+        division: divisionParam,
         invoice_id: z
           .string()
           .describe("The sales invoice GUID (InvoiceID) to retrieve."),
@@ -120,9 +120,7 @@ export function registerSalesTools(
     async (args) => {
       try {
         const { invoice_id } = args;
-        const invoicePath = await client.divisionPath(
-          `salesinvoice/SalesInvoices(guid'${invoice_id}')`
-        );
+        const invoicePath = await client.divisionPath(`salesinvoice/SalesInvoices(guid'${invoice_id}')`, args.division);
         const invoice = await client.request("GET", invoicePath, {
           params: {
             $select:
@@ -130,9 +128,7 @@ export function registerSalesTools(
           },
         });
 
-        const linesPath = await client.divisionPath(
-          "salesinvoice/SalesInvoiceLines"
-        );
+        const linesPath = await client.divisionPath("salesinvoice/SalesInvoiceLines", args.division);
         const lines = await client.getAll(linesPath, {
           $filter: `InvoiceID eq guid'${invoice_id}'`,
           $select:
@@ -160,6 +156,7 @@ export function registerSalesTools(
         "`unit_price`, an optional `gl_account_id` (GUID) and an optional `vat_code`. Only the fields you " +
         "provide are sent. Returns the created invoice as returned by Exact.",
       inputSchema: {
+        division: divisionParam,
         ordered_by: z
           .string()
           .describe(
@@ -249,7 +246,7 @@ export function registerSalesTools(
         if (your_ref !== undefined) body.YourRef = your_ref;
         if (invoice_date !== undefined) body.InvoiceDate = invoice_date;
 
-        const path = await client.divisionPath("salesinvoice/SalesInvoices");
+        const path = await client.divisionPath("salesinvoice/SalesInvoices", args.division);
         const created = await client.request("POST", path, { body });
         return okJson(created);
       } catch (e) {
@@ -272,6 +269,7 @@ export function registerSalesTools(
         "(common values: 12=open, 20=partial, 21=complete, 45=cancelled). Use `top` to cap the number " +
         "of rows (default 50, max 500). Returns key fields per order including totals and status.",
       inputSchema: {
+        division: divisionParam,
         date_from: z
           .string()
           .optional()
@@ -314,7 +312,7 @@ export function registerSalesTools(
         if (status !== undefined) filters.push(`Status eq ${status}`);
 
         const max = top ?? 50;
-        const path = await client.divisionPath("salesorder/SalesOrders");
+        const path = await client.divisionPath("salesorder/SalesOrders", args.division);
         const result = await client.getAll(
           path,
           {
@@ -344,6 +342,7 @@ export function registerSalesTools(
         "Returns an object { order, lines } where `order` is the header and `lines` is the array of " +
         "line items (item, description, quantity, unit price, amounts, discount).",
       inputSchema: {
+        division: divisionParam,
         order_id: z
           .string()
           .describe("The sales order GUID (OrderID) to retrieve."),
@@ -352,9 +351,7 @@ export function registerSalesTools(
     async (args) => {
       try {
         const { order_id } = args;
-        const orderPath = await client.divisionPath(
-          `salesorder/SalesOrders(guid'${order_id}')`
-        );
+        const orderPath = await client.divisionPath(`salesorder/SalesOrders(guid'${order_id}')`, args.division);
         const order = await client.request("GET", orderPath, {
           params: {
             $select:
@@ -362,9 +359,7 @@ export function registerSalesTools(
           },
         });
 
-        const linesPath = await client.divisionPath(
-          "salesorder/SalesOrderLines"
-        );
+        const linesPath = await client.divisionPath("salesorder/SalesOrderLines", args.division);
         const lines = await client.getAll(linesPath, {
           $filter: `OrderID eq guid'${order_id}'`,
           $select:
