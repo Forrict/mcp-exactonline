@@ -1,5 +1,9 @@
 import type { Config } from "../config.js";
-import { loadTokens, saveTokens, type TokenSet } from "./tokenStore.js";
+import {
+  createFileTokenStore,
+  type TokenSet,
+  type TokenStore,
+} from "./tokenStore.js";
 
 /** Refresh when the access token expires within this many milliseconds. */
 const SAFETY_MARGIN_MS = 60_000;
@@ -23,13 +27,14 @@ function oauthUrl(config: Config, kind: "auth" | "token"): string {
 }
 
 /** Build the browser authorization URL for the interactive login flow. */
-export function buildAuthorizationUrl(config: Config): string {
+export function buildAuthorizationUrl(config: Config, state?: string): string {
   const url = new URL(oauthUrl(config, "auth"));
   url.searchParams.set("client_id", config.clientId);
   url.searchParams.set("redirect_uri", config.redirectUri);
   url.searchParams.set("response_type", "code");
   // force_login=0 reuses an existing Exact session if the user is signed in.
   url.searchParams.set("force_login", "0");
+  if (state) url.searchParams.set("state", state);
   return url.toString();
 }
 
@@ -76,7 +81,7 @@ async function postToken(
     err.code = errObj.error;
     if (errObj.error === "invalid_grant") {
       err.message +=
-        "\nThe refresh/authorization grant is no longer valid. Re-run `npm run auth` to re-authorize.";
+        "\nThe refresh/authorization grant is no longer valid. Re-authorize (`npm run auth`, or /auth/<MCP_ACCESS_KEY> on the Lambda URL).";
     }
     throw err;
   }
@@ -116,31 +121,25 @@ export async function exchangeCode(
  *
  * CRITICAL: Exact Online refresh tokens are SINGLE-USE. Every successful
  * refresh returns a brand-new refresh token; the old one is immediately
- * invalidated server-side. We therefore persist the new token set to disk
- * BEFORE handing the access token to callers, and serialize refreshes with an
+ * invalidated server-side. We therefore persist the new token set BEFORE
+ * handing the access token to callers, and serialize refreshes with an
  * in-process promise lock so concurrent callers never fire two parallel
  * refreshes (which would burn the refresh token and lock us out).
+ *
+ * Several processes may share one store (e.g. concurrent Lambda instances), so
+ * the store is re-read right before refreshing: if another process already
+ * rotated the tokens we adopt its result instead of using a stale refresh
+ * token.
  */
 export class OAuthManager {
   private tokens?: TokenSet;
   /** Promise-based mutex: non-undefined while a refresh is in flight. */
   private refreshInFlight?: Promise<TokenSet>;
-  private loaded = false;
 
-  constructor(private readonly config: Config) {}
-
-  private async ensureLoaded(): Promise<TokenSet> {
-    if (!this.loaded) {
-      this.tokens = await loadTokens(this.config);
-      this.loaded = true;
-    }
-    if (!this.tokens) {
-      throw new Error(
-        "No stored Exact Online tokens found. Run `npm run auth` to authorize, or set EXACT_REFRESH_TOKEN."
-      );
-    }
-    return this.tokens;
-  }
+  constructor(
+    private readonly config: Config,
+    private readonly store: TokenStore = createFileTokenStore(config)
+  ) {}
 
   private isFresh(tokens: TokenSet): boolean {
     return (
@@ -148,17 +147,46 @@ export class OAuthManager {
     );
   }
 
-  private async doRefresh(current: TokenSet): Promise<TokenSet> {
-    const next = await postToken(this.config, {
+  private async loadFromStore(): Promise<TokenSet> {
+    const tokens = await this.store.load();
+    if (!tokens) {
+      throw new Error(
+        "No stored Exact Online tokens found. Authorize first (`npm run auth` locally, or open /auth/<MCP_ACCESS_KEY> on the Lambda URL), or set EXACT_REFRESH_TOKEN."
+      );
+    }
+    return tokens;
+  }
+
+  private refreshWith(current: TokenSet): Promise<TokenSet> {
+    return postToken(this.config, {
       grant_type: "refresh_token",
       refresh_token: current.refresh_token,
       client_id: this.config.clientId,
       client_secret: this.config.clientSecret,
     });
+  }
+
+  private async doRefresh(): Promise<TokenSet> {
+    // Another process may have rotated the tokens since we last looked.
+    let current = await this.loadFromStore();
+    if (this.isFresh(current)) return current;
+
+    let next: TokenSet;
+    try {
+      next = await this.refreshWith(current);
+    } catch (err) {
+      // Lost a race with another process: it consumed our refresh token and
+      // stored a new one in the meantime. Adopt (or refresh with) that one.
+      if ((err as OAuthError).code !== "invalid_grant") throw err;
+      const latest = await this.loadFromStore();
+      if (latest.refresh_token === current.refresh_token) throw err;
+      if (this.isFresh(latest)) return latest;
+      current = latest;
+      next = await this.refreshWith(current);
+    }
     // Persist the NEW single-use refresh token before anyone uses the access
     // token, so a crash can never leave us with an unsaved rotated token.
-    await saveTokens(this.config, next);
-    this.tokens = next;
+    await this.store.save(next);
     return next;
   }
 
@@ -167,26 +195,25 @@ export class OAuthManager {
    * margin. Concurrent calls share a single in-flight refresh.
    */
   async getAccessToken(): Promise<string> {
-    const current = await this.ensureLoaded();
-    if (this.isFresh(current)) return current.access_token;
+    if (!this.tokens) this.tokens = await this.loadFromStore();
+    if (this.isFresh(this.tokens)) return this.tokens.access_token;
 
     // If a refresh is already running, await it rather than starting another.
-    if (this.refreshInFlight) {
-      const refreshed = await this.refreshInFlight;
-      return refreshed.access_token;
+    if (!this.refreshInFlight) {
+      this.refreshInFlight = this.doRefresh().finally(() => {
+        this.refreshInFlight = undefined;
+      });
     }
-
-    this.refreshInFlight = this.doRefresh(current).finally(() => {
-      this.refreshInFlight = undefined;
-    });
-
-    const refreshed = await this.refreshInFlight;
-    return refreshed.access_token;
+    this.tokens = await this.refreshInFlight;
+    return this.tokens.access_token;
   }
 }
 
 /** Convenience factory returning a bound token provider fn. */
-export function createTokenProvider(config: Config): () => Promise<string> {
-  const manager = new OAuthManager(config);
+export function createTokenProvider(
+  config: Config,
+  store?: TokenStore
+): () => Promise<string> {
+  const manager = new OAuthManager(config, store);
   return () => manager.getAccessToken();
 }
