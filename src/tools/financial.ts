@@ -138,7 +138,7 @@ export function registerFinancialTools(
         "financialtransaction/TransactionLines endpoint. Each line records a posting to a GL " +
         "account within a journal entry, including the Date, FinancialYear, FinancialPeriod, " +
         "JournalCode, EntryNumber, GLAccountCode + GLAccountDescription, Description, AmountDC, " +
-        "CurrencyCode, AccountName (customer/supplier), InvoiceNumber, CostCenter, CostUnit and " +
+        "AccountName (customer/supplier), InvoiceNumber, CostCenter, CostUnit and " +
         "Type. AmountDC is the amount expressed in the division's (default) currency, where a " +
         "debit is positive and a credit is negative. Filter by date range, GL account code, " +
         "account (customer/supplier GUID), financial year and/or journal code. Backed by GET " +
@@ -226,7 +226,7 @@ export function registerFinancialTools(
           {
             $filter: filters.length ? filters.join(" and ") : undefined,
             $select:
-              "ID,Date,FinancialYear,FinancialPeriod,JournalCode,EntryNumber,GLAccountCode,GLAccountDescription,Description,AmountDC,CurrencyCode,AccountName,InvoiceNumber,CostCenter,CostUnit,Type",
+              "ID,Date,FinancialYear,FinancialPeriod,JournalCode,EntryNumber,GLAccountCode,GLAccountDescription,Description,AmountDC,AccountName,InvoiceNumber,CostCenter,CostUnit,Type",
             $orderby: "Date desc",
             $top: max,
           },
