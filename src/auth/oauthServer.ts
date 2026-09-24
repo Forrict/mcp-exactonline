@@ -27,8 +27,8 @@ export interface OAuthServerSettings {
   clientId: string;
   clientSecret: string;
   signingKey: string;
-  /** Exact UserID (GUID) or UserName that may log in. */
-  allowedExactUser?: string;
+  /** Exact UserID (GUID) or UserName that may log in; read at every login. */
+  allowedExactUser: () => Promise<string | undefined>;
   exactConfig: Config;
   /** Persist the Exact tokens obtained during a successful login. */
   saveExactTokens: (tokens: TokenSet) => Promise<void>;
@@ -249,7 +249,7 @@ export class OAuthServer {
     const tokens = await exchangeCode(exactConfig, exactCode);
     const me = await fetchExactIdentity(exactConfig, tokens.access_token);
 
-    const allowed = this.s.allowedExactUser?.trim().toLowerCase();
+    const allowed = (await this.s.allowedExactUser())?.trim().toLowerCase();
     const matches =
       !!allowed &&
       [me.UserID, me.UserName].some((v) => v?.toLowerCase() === allowed);
