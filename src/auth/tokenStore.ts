@@ -10,6 +10,34 @@ export interface TokenSet {
 }
 
 /**
+ * Persistence backend for the token set. The default is a local JSON file;
+ * the Lambda deployment uses AWS Secrets Manager (see secretsStore.ts).
+ */
+export interface TokenStore {
+  load(): Promise<TokenSet | undefined>;
+  save(tokens: TokenSet): Promise<void>;
+}
+
+/** Token store backed by the local file at config.tokenStore. */
+export function createFileTokenStore(config: Config): TokenStore {
+  return {
+    load: () => loadTokens(config),
+    save: (tokens) => saveTokens(config, tokens),
+  };
+}
+
+/** True when the value has the shape of a persisted TokenSet. */
+export function isTokenSet(value: unknown): value is TokenSet {
+  const t = value as Partial<TokenSet> | null | undefined;
+  return (
+    !!t &&
+    typeof t.access_token === "string" &&
+    typeof t.refresh_token === "string" &&
+    typeof t.expires_at === "number"
+  );
+}
+
+/**
  * Load the persisted token set.
  *
  * If the store file does not exist but EXACT_REFRESH_TOKEN is configured,
@@ -22,12 +50,8 @@ export async function loadTokens(
 ): Promise<TokenSet | undefined> {
   try {
     const raw = await readFile(config.tokenStore, "utf8");
-    const parsed = JSON.parse(raw) as Partial<TokenSet>;
-    if (
-      typeof parsed.access_token === "string" &&
-      typeof parsed.refresh_token === "string" &&
-      typeof parsed.expires_at === "number"
-    ) {
+    const parsed = JSON.parse(raw) as unknown;
+    if (isTokenSet(parsed)) {
       return {
         access_token: parsed.access_token,
         refresh_token: parsed.refresh_token,
