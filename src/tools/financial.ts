@@ -2,7 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { ExactClient } from "../client.js";
 import { toExactDate } from "../client.js";
-import { okJson, errText } from "./helpers.js";
+import { okJson, errText, divisionParam } from "./helpers.js";
 
 /**
  * Escape a string literal for an OData v3 `$filter` expression by doubling any
@@ -35,6 +35,7 @@ export function registerFinancialTools(
         "`type` to filter by the Exact GL account type code. Backed by GET " +
         "/{division}/financial/GLAccounts, ordered by Code.",
       inputSchema: {
+        division: divisionParam,
         search: z
           .string()
           .optional()
@@ -68,7 +69,7 @@ export function registerFinancialTools(
           filters.push(`Type eq ${type}`);
         }
         const max = top ?? 100;
-        const path = await client.divisionPath("financial/GLAccounts");
+        const path = await client.divisionPath("financial/GLAccounts", args.division);
         const result = await client.getAll(
           path,
           {
@@ -98,6 +99,7 @@ export function registerFinancialTools(
         "linked Bank, BankAccountDescription and Currency. Backed by GET " +
         "/{division}/financial/Journals.",
       inputSchema: {
+        division: divisionParam,
         top: z
           .number()
           .int()
@@ -110,7 +112,7 @@ export function registerFinancialTools(
     async (args) => {
       try {
         const max = args.top ?? 100;
-        const path = await client.divisionPath("financial/Journals");
+        const path = await client.divisionPath("financial/Journals", args.division);
         const result = await client.getAll(
           path,
           {
@@ -142,6 +144,7 @@ export function registerFinancialTools(
         "account (customer/supplier GUID), financial year and/or journal code. Backed by GET " +
         "/{division}/financialtransaction/TransactionLines, ordered by Date descending.",
       inputSchema: {
+        division: divisionParam,
         date_from: z
           .string()
           .optional()
@@ -217,9 +220,7 @@ export function registerFinancialTools(
           filters.push(`JournalCode eq ${odataString(journal_code)}`);
         }
         const max = top ?? 100;
-        const path = await client.divisionPath(
-          "financialtransaction/TransactionLines"
-        );
+        const path = await client.divisionPath("financialtransaction/TransactionLines", args.division);
         const result = await client.getAll(
           path,
           {
@@ -249,6 +250,7 @@ export function registerFinancialTools(
         "EntryNumber. Backed by GET /{division}/read/financial/ReceivablesList, ordered by " +
         "DueDate.",
       inputSchema: {
+        division: divisionParam,
         top: z
           .number()
           .int()
@@ -261,7 +263,7 @@ export function registerFinancialTools(
     async (args) => {
       try {
         const max = args.top ?? 100;
-        const path = await client.divisionPath("read/financial/ReceivablesList");
+        const path = await client.divisionPath("read/financial/ReceivablesList", args.division);
         const result = await client.getAll(
           path,
           {
@@ -290,6 +292,7 @@ export function registerFinancialTools(
         "InvoiceNumber, YourRef and EntryNumber. Backed by GET " +
         "/{division}/read/financial/PayablesList, ordered by DueDate.",
       inputSchema: {
+        division: divisionParam,
         top: z
           .number()
           .int()
@@ -302,7 +305,7 @@ export function registerFinancialTools(
     async (args) => {
       try {
         const max = args.top ?? 100;
-        const path = await client.divisionPath("read/financial/PayablesList");
+        const path = await client.divisionPath("read/financial/PayablesList", args.division);
         const result = await client.getAll(
           path,
           {
@@ -332,6 +335,7 @@ export function registerFinancialTools(
         "Useful for assessing overdue exposure and collections risk. Backed by GET " +
         "/{division}/read/financial/AgingReceivablesList.",
       inputSchema: {
+        division: divisionParam,
         top: z
           .number()
           .int()
@@ -344,9 +348,7 @@ export function registerFinancialTools(
     async (args) => {
       try {
         const max = args.top ?? 100;
-        const path = await client.divisionPath(
-          "read/financial/AgingReceivablesList"
-        );
+        const path = await client.divisionPath("read/financial/AgingReceivablesList", args.division);
         const result = await client.getAll(
           path,
           {
@@ -373,6 +375,7 @@ export function registerFinancialTools(
         "and its StartDate / EndDate. Optionally filter to a single financial year. Backed by " +
         "GET /{division}/financial/FinancialPeriods.",
       inputSchema: {
+        division: divisionParam,
         financial_year: z
           .number()
           .int()
@@ -391,7 +394,7 @@ export function registerFinancialTools(
       try {
         const { financial_year, top } = args;
         const max = top ?? 50;
-        const path = await client.divisionPath("financial/FinancialPeriods");
+        const path = await client.divisionPath("financial/FinancialPeriods", args.division);
         const result = await client.getAll(
           path,
           {
