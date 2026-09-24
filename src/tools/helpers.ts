@@ -10,12 +10,10 @@ import { z } from "zod";
  * division-scoped tools. Defaults to EXACT_DIVISION / the current division.
  */
 export const divisionParam = z
-  .number()
-  .int()
-  .positive()
+  .union([z.number().int().positive(), z.string()])
   .optional()
   .describe(
-    "Division (administration) code to query. Defaults to the configured/current division; use exact_list_divisions to discover codes."
+    "Division (administration) to query: a division code or a configured alias (EXACT_DIVISION_ALIASES). Defaults to the configured/current division; use exact_list_divisions to discover codes."
   );
 
 /** MCP tool result shape (subset we use). */

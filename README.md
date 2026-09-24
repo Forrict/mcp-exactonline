@@ -21,13 +21,23 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server for [E
 | Financial | `exact_list_gl_accounts`, `exact_list_journals`, `exact_list_transaction_lines`, `exact_get_receivables`, `exact_get_payables`, `exact_get_aging_receivables`, `exact_get_financial_periods` |
 | Reporting | `exact_get_reporting_balance` (P&L / balance sheet), `exact_list_budgets`, `exact_list_bank_entries`, `exact_list_payments`, `exact_list_vat_codes` |
 | Mailbox | `exact_list_mail_messages` (digital postbox), `exact_list_mail_message_attachments` |
+| Pipeline | `exact_list_quotations`, `exact_list_opportunities`, `exact_list_addresses`, `exact_list_account_bank_accounts` |
+| Documents | `exact_list_documents`, `exact_list_document_attachments` |
+| Cashflow+ | `exact_list_incoming_receivables`, `exact_list_direct_debit_mandates`, `exact_list_exchange_rates`, `exact_get_revenue_list`, `exact_list_assets` |
+| Projects | `exact_list_projects`, `exact_list_time_transactions` |
+| HR | `exact_list_employees`, `exact_list_departments`, `exact_list_leave_registrations` |
+| Subscriptions | `exact_list_subscriptions`, `exact_list_subscription_lines`, `exact_list_shop_orders` |
+| Insights | `exact_pl_summary`, `exact_missing_bookings`, `exact_bank_status`, `exact_inbox`, `exact_match_suggestions`, `exact_group_report` (multi-division consolidation) |
+| Writes (guarded) | `exact_create_journal_entry`, `exact_create_purchase_entry`, `exact_create_match_set` — all dry-run by default, drafts only |
 | Sales | `exact_list_sales_invoices`, `exact_get_sales_invoice`, `exact_create_sales_invoice`, `exact_list_sales_orders`, `exact_get_sales_order` |
 | Purchase | `exact_list_purchase_entries`, `exact_get_purchase_entry`, `exact_list_purchase_orders` |
 | Logistics | `exact_list_items`, `exact_get_item`, `exact_list_sales_item_prices`, `exact_list_stock_positions` |
 
 Tools that create or modify data (`exact_create_*`, `exact_update_*`) say so explicitly in their descriptions so the client can ask for confirmation.
 
-Every division-scoped tool accepts an optional `division` parameter to query a specific administration; without it the configured (`EXACT_DIVISION`) or current division is used. Use `exact_list_divisions` to discover division codes.
+Every division-scoped tool accepts an optional `division` parameter to query a specific administration; without it the configured (`EXACT_DIVISION`) or current division is used. Use `exact_list_divisions` to discover division codes. Friendly aliases can be configured via `EXACT_DIVISION_ALIASES` (e.g. `acme=1234567,acme-holding=7654321` — as env var locally, or as a key in the Lambda secret), after which `division: "acme"` works everywhere.
+
+Responses are compacted automatically: OData `__metadata`/`__deferred` noise and null fields are stripped, and list results include `rate_limit_minutely_remaining` so clients can pace themselves. Write tools default to `dry_run: true` (returning the exact body they would post), create drafts only, and log an audit line to the server logs (CloudWatch on Lambda).
 
 ## Setup
 

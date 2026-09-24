@@ -24,6 +24,8 @@ export interface SecretDocument {
   SIGNING_KEY?: string;
   /** Exact Online UserName or UserID that is allowed to log in. */
   ALLOWED_EXACT_USER?: string;
+  /** Optional division aliases, e.g. "acme=1234567,acme-holding=7654321". */
+  EXACT_DIVISION_ALIASES?: string;
   tokens?: TokenSet;
   [key: string]: unknown;
 }
