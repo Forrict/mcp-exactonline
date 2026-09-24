@@ -81,7 +81,7 @@ async function postToken(
     err.code = errObj.error;
     if (errObj.error === "invalid_grant") {
       err.message +=
-        "\nThe refresh/authorization grant is no longer valid. Re-authorize (`npm run auth`, or /auth/<MCP_ACCESS_KEY> on the Lambda URL).";
+        "\nThe refresh/authorization grant is no longer valid. Re-authorize (`npm run auth` locally, or reconnect the connector in Claude when running on Lambda).";
     }
     throw err;
   }
@@ -151,7 +151,7 @@ export class OAuthManager {
     const tokens = await this.store.load();
     if (!tokens) {
       throw new Error(
-        "No stored Exact Online tokens found. Authorize first (`npm run auth` locally, or open /auth/<MCP_ACCESS_KEY> on the Lambda URL), or set EXACT_REFRESH_TOKEN."
+        "No stored Exact Online tokens found. Authorize first (`npm run auth` locally, or reconnect the connector in Claude when running on Lambda), or set EXACT_REFRESH_TOKEN."
       );
     }
     return tokens;

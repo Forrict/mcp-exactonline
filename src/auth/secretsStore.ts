@@ -8,15 +8,21 @@ import { isTokenSet, type TokenSet, type TokenStore } from "./tokenStore.js";
 /**
  * Shape of the JSON document stored in the Secrets Manager secret.
  *
- * The operator creates the secret with the app credentials and an access key;
- * the server adds and rotates the `tokens` field itself. Unknown fields are
+ * The operator creates the secret with the Exact and OAuth client credentials,
+ * a signing key and the allowed Exact user; the server adds and rotates the
+ * `tokens` field itself. Unknown fields are
  * preserved on every write.
  */
 export interface SecretDocument {
   EXACT_CLIENT_ID?: string;
   EXACT_CLIENT_SECRET?: string;
-  /** Shared secret that protects the public MCP and /auth endpoints. */
-  MCP_ACCESS_KEY?: string;
+  /** OAuth client credentials you enter in Claude's connector settings. */
+  OAUTH_CLIENT_ID?: string;
+  OAUTH_CLIENT_SECRET?: string;
+  /** HMAC key for everything the OAuth server issues; rotate to revoke all. */
+  SIGNING_KEY?: string;
+  /** Exact Online UserName or UserID that is allowed to log in. */
+  ALLOWED_EXACT_USER?: string;
   tokens?: TokenSet;
   [key: string]: unknown;
 }

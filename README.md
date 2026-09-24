@@ -91,19 +91,37 @@ claude mcp add exact-online -e EXACT_CLIENT_ID=... -e EXACT_CLIENT_SECRET=... --
 The server can also run as a single AWS Lambda behind a public **Function URL**, so Claude connects to it over the internet as a *custom connector* — nothing runs on your own machine. The stack (AWS CDK, `infra/app.ts`) contains:
 
 - one Node.js 22 Lambda (`src/lambda.ts`), MCP Streamable HTTP in stateless JSON mode;
-- a Function URL (`AuthType: NONE`) — access is protected by a long random **access key** in the URL path;
-- one Secrets Manager secret (created by you) holding the Exact app credentials, the access key and the OAuth tokens, which the function rotates itself;
-- a weekly EventBridge rule that refreshes the Exact token so it never expires during quiet periods.
+- a small built-in **OAuth 2.1 authorization server** (`src/auth/oauthServer.ts`) protecting the MCP endpoint — you log in with your **Exact Online account**, and only the Exact user you configure is accepted;
+- one Secrets Manager secret (created by you) holding the credentials, a signing key and the Exact tokens, which the function rotates itself;
+- a weekly EventBridge rule that refreshes the Exact token so it never expires during quiet periods;
+- CloudWatch alarms for repeated auth failures, logins by a non-allowed Exact user, and function errors (optionally e-mailed to you).
 
-Cost for a single occasional user is effectively the Secrets Manager secret (~$0.40/month); Lambda usage stays within the free tier.
+Cost for a single occasional user is effectively the Secrets Manager secret (~$0.40/month); Lambda, CloudWatch alarms/metrics and SNS e-mail stay within the free tier.
 
-**1. Create the secret** (once; pick your region, e.g. `eu-west-1`):
+#### How access is secured
+
+1. Claude calls `/mcp` without a token, gets `401` and discovers the OAuth endpoints (`/.well-known/oauth-protected-resource`, `/.well-known/oauth-authorization-server`).
+2. Claude sends you to `/authorize`, which forwards you to the **Exact Online login** (including your Exact 2FA).
+3. After login the function checks the Exact user against `ALLOWED_EXACT_USER`. Anyone else gets `403` and nothing is stored. For you, the Exact tokens are saved (this also (re)connects the server to Exact) and Claude receives an authorization code.
+4. Claude exchanges the code (client secret + PKCE S256) for a 1-hour access token and a 30-day refresh token.
+
+Hardening details: only one pre-registered client; only Claude's redirect URIs (`https://claude.ai/api/mcp/auth_callback`, `https://claude.com/api/mcp/auth_callback`) and loopback URIs (Claude Code) are accepted; tokens are bound to type, client and audience (the `/mcp` URL). Tokens are stateless HMAC-signed values — **change `SIGNING_KEY` in the secret to revoke every issued token** (effective on the next cold start; redeploy to force it). Known limit of the stateless design: an authorization code can be redeemed more than once within its 5-minute lifetime, which still requires the client secret and the PKCE verifier.
+
+#### Deploy
+
+**1. Create the secret** (once; pick your region, e.g. `eu-west-1`). `ALLOWED_EXACT_USER` is your Exact login name (UserName) or UserID; if unsure, leave a placeholder — a rejected login shows the values to use.
 
 ```bash
-KEY=$(openssl rand -hex 32)
-aws secretsmanager create-secret --name mcp-exactonline \
-  --secret-string "{\"EXACT_CLIENT_ID\":\"...\",\"EXACT_CLIENT_SECRET\":\"...\",\"MCP_ACCESS_KEY\":\"$KEY\"}"
-echo "$KEY"   # keep this: it is part of your connector URL
+OAUTH_CLIENT_SECRET=$(openssl rand -hex 32)
+aws secretsmanager create-secret --name mcp-exactonline --secret-string "{
+  \"EXACT_CLIENT_ID\": \"...\",
+  \"EXACT_CLIENT_SECRET\": \"...\",
+  \"ALLOWED_EXACT_USER\": \"you@example.com\",
+  \"OAUTH_CLIENT_ID\": \"claude-exact\",
+  \"OAUTH_CLIENT_SECRET\": \"$OAUTH_CLIENT_SECRET\",
+  \"SIGNING_KEY\": \"$(openssl rand -hex 32)\"
+}"
+echo "$OAUTH_CLIENT_SECRET"   # you enter this in Claude
 ```
 
 **2. Deploy:**
@@ -111,18 +129,23 @@ echo "$KEY"   # keep this: it is part of your connector URL
 ```bash
 npm install
 npx cdk bootstrap        # once per account/region
-npx cdk deploy           # options: -c exactRegion=nl -c exactDivision=123456 -c readOnly=true -c secretName=...
+npx cdk deploy -c alarmEmail=you@example.com   # other options: -c exactRegion=nl -c exactDivision=123456 -c readOnly=true -c secretName=...
 ```
 
-The output `FunctionUrl` looks like `https://abc123.lambda-url.eu-west-1.on.aws/`.
+Confirm the SNS subscription e-mail to receive alarms. The output `FunctionUrl` looks like `https://abc123.lambda-url.eu-west-1.on.aws/`.
 
-**3. Register the redirect URI** `<FunctionUrl>oauth/callback` on your app in the Exact App Center.
+**3. Register the redirect URI** `<FunctionUrl>oauth/callback` on your app in the Exact App Center. (Local `npm run auth` uses the localhost redirect URI; use a separate Exact app if you need both.)
 
-**4. Authorize Exact Online** by opening `<FunctionUrl>auth/<MCP_ACCESS_KEY>` in a browser and logging in. The tokens are written to the secret.
+**4. Add the connector in Claude** (Customize → Connectors → *Add custom connector*): URL `<FunctionUrl>mcp`, and under *Advanced settings* the OAuth Client ID (`OAUTH_CLIENT_ID`) and Client Secret (`OAUTH_CLIENT_SECRET`). Click *Connect* and log in with Exact Online.
 
-**5. Add the connector in Claude** (Settings → Connectors → *Add custom connector*) with URL `<FunctionUrl>mcp/<MCP_ACCESS_KEY>`. No OAuth client settings are needed. For Claude Code: `claude mcp add --transport http exact-online <FunctionUrl>mcp --header "Authorization: Bearer <MCP_ACCESS_KEY>"`.
+For Claude Code:
 
-Security notes: the connector URL *is* the credential — treat it like a password; rotate by changing `MCP_ACCESS_KEY` in the secret (takes effect on the next cold start, or redeploy to force it). Use `-c readOnly=true` if Claude should never create or change data. The function never logs request paths.
+```bash
+claude mcp add --transport http --client-id claude-exact --client-secret --callback-port 8080 \
+  exact-online <FunctionUrl>mcp
+```
+
+Use `-c readOnly=true` if Claude should never create or change data. The function never logs query strings, bodies or tokens.
 
 ## Usage examples
 
@@ -159,7 +182,7 @@ src/
 ├── server.ts         # MCP server + tool registration
 ├── config.ts         # env config, region base URLs
 ├── client.ts         # ExactClient: auth'd requests, pagination, OData, dates
-├── auth/             # OAuth2 refresh, token stores (file / Secrets Manager), CLI login flow
+├── auth/             # Exact OAuth2 refresh, token stores, CLI login, OAuth server for Claude
 └── tools/            # tool modules (system, crm, financial, sales, purchase, logistics)
 infra/app.ts          # AWS CDK stack for the Lambda deployment
 ```
