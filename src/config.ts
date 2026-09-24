@@ -27,6 +27,8 @@ export interface Config {
   tokenStore: string;
   /** Optional bootstrap refresh token (single-use seed). */
   refreshToken?: string;
+  /** Friendly division aliases (lowercase name -> division code). */
+  divisionAliases: Record<string, number>;
   /** When true, tools that create or modify data are not registered. */
   readOnly: boolean;
 }
@@ -100,6 +102,20 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
 
   const refreshToken = env.EXACT_REFRESH_TOKEN?.trim() || undefined;
 
+  // EXACT_DIVISION_ALIASES="biemans-it=3326819,udamva=1234567"
+  const divisionAliases: Record<string, number> = {};
+  for (const pair of (env.EXACT_DIVISION_ALIASES ?? "").split(",")) {
+    const [name, code] = pair.split("=").map((s) => s.trim());
+    if (!name || !code) continue;
+    const parsed = Number(code);
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+      throw new Error(
+        `Invalid division code "${code}" for alias "${name}" in EXACT_DIVISION_ALIASES.`
+      );
+    }
+    divisionAliases[name.toLowerCase()] = parsed;
+  }
+
   const readOnly = ["1", "true", "yes"].includes(
     (env.EXACT_READ_ONLY?.trim() || "").toLowerCase()
   );
@@ -114,6 +130,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     redirectUri,
     tokenStore,
     refreshToken,
+    divisionAliases,
     readOnly,
   };
 }

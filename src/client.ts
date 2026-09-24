@@ -49,8 +49,10 @@ interface MeInfo {
 const EXACT_DATE_RE = /^\/Date\((-?\d+)([+-]\d{4})?\)\/$/;
 
 /**
- * Recursively convert Exact `/Date(ms)/` strings to ISO 8601. Returns a new
- * structure; input is not mutated. Non-date values pass through unchanged.
+ * Recursively convert Exact `/Date(ms)/` strings to ISO 8601 and strip OData
+ * noise (`__metadata`, `__deferred` navigation stubs and null values), which
+ * otherwise dominates responses without `$select`. Returns a new structure;
+ * input is not mutated.
  */
 export function normalizeDates<T>(obj: T): T {
   if (typeof obj === "string") {
@@ -64,9 +66,18 @@ export function normalizeDates<T>(obj: T): T {
     return obj.map((item) => normalizeDates(item)) as unknown as T;
   }
   if (obj && typeof obj === "object") {
+    const entries = Object.entries(obj);
+    // A deferred navigation property ({ __deferred: {...} }) carries no data.
+    if (entries.length === 1 && entries[0][0] === "__deferred") {
+      return undefined as unknown as T;
+    }
     const out: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(obj)) {
-      out[key] = normalizeDates(value);
+    for (const [key, value] of entries) {
+      if (key === "__metadata" || key === "__deferred" || value === null) {
+        continue;
+      }
+      const normalized = normalizeDates(value);
+      if (normalized !== undefined) out[key] = normalized;
     }
     return out as T;
   }
@@ -91,6 +102,8 @@ export interface GetAllResult<T> {
   results: T[];
   truncated: boolean;
   count: number;
+  /** Remaining Exact API calls this minute, when reported by Exact. */
+  rate_limit_minutely_remaining?: number;
 }
 
 const sleep = (ms: number): Promise<void> =>
@@ -99,6 +112,7 @@ const sleep = (ms: number): Promise<void> =>
 export class ExactClient {
   private readonly apiBase: string;
   private cachedMe?: MeInfo;
+  private lastRateRemaining?: number;
 
   constructor(
     private readonly config: Config,
@@ -139,10 +153,19 @@ export class ExactClient {
     } catch {
       /* keep raw text */
     }
+    let hint = "";
+    if (res.status === 401 || res.status === 403) {
+      hint =
+        " (authorization refused by Exact — this endpoint may need a scope/right the app registration does not have)";
+    } else if (res.status === 429) {
+      hint = " (Exact rate limit reached — wait and try again)";
+    } else if (res.status === 400 && /property|could not be found|invalid/i.test(message)) {
+      hint = " (likely an invalid field name in $select/$filter for this resource)";
+    }
     throw new Error(
       `Exact API error ${res.status} ${res.statusText}${
         message ? `: ${message}` : ""
-      }`
+      }${hint}`
     );
   }
 
@@ -182,6 +205,7 @@ export class ExactClient {
       // Surface rate-limit headroom for debugging (stderr only).
       const remaining = res.headers.get("X-RateLimit-Minutely-Remaining");
       if (remaining !== null) {
+        this.lastRateRemaining = Number(remaining);
         process.stderr.write(
           `[exact] X-RateLimit-Minutely-Remaining=${remaining}\n`
         );
@@ -277,7 +301,12 @@ export class ExactClient {
       currentPath = nextUrl;
     }
 
-    return { results, truncated, count: results.length };
+    return {
+      results,
+      truncated,
+      count: results.length,
+      rate_limit_minutely_remaining: this.lastRateRemaining,
+    };
   }
 
   /** Raw list fetch (with retry) returning the untouched list envelope. */
@@ -298,6 +327,7 @@ export class ExactClient {
 
       const remaining = res.headers.get("X-RateLimit-Minutely-Remaining");
       if (remaining !== null) {
+        this.lastRateRemaining = Number(remaining);
         process.stderr.write(
           `[exact] X-RateLimit-Minutely-Remaining=${remaining}\n`
         );
@@ -348,11 +378,27 @@ export class ExactClient {
   }
 
   /**
-   * Resolve the active division: an explicit per-call override if given,
-   * else EXACT_DIVISION, else the user's CurrentDivision.
+   * Resolve the active division: an explicit per-call override (a division
+   * code, or an alias from EXACT_DIVISION_ALIASES) if given, else
+   * EXACT_DIVISION, else the user's CurrentDivision.
    */
-  async resolveDivision(override?: number): Promise<number> {
-    if (override) return override;
+  async resolveDivision(override?: number | string): Promise<number> {
+    if (typeof override === "string" && override.trim()) {
+      const key = override.trim().toLowerCase();
+      const aliased = this.config.divisionAliases[key];
+      if (aliased) return aliased;
+      const parsed = Number(key);
+      if (Number.isInteger(parsed) && parsed > 0) return parsed;
+      const known = Object.keys(this.config.divisionAliases);
+      throw new Error(
+        `Unknown division "${override}". ${
+          known.length
+            ? `Known aliases: ${known.join(", ")}.`
+            : "No aliases configured (set EXACT_DIVISION_ALIASES)."
+        } Use exact_list_divisions for division codes.`
+      );
+    }
+    if (typeof override === "number" && override) return override;
     if (this.config.division) return this.config.division;
     const me = await this.getCurrentDivision();
     if (!me?.CurrentDivision) {
@@ -364,7 +410,10 @@ export class ExactClient {
   }
 
   /** Build a division-scoped resource path: /{division}/{resource}. */
-  async divisionPath(resource: string, division?: number): Promise<string> {
+  async divisionPath(
+    resource: string,
+    division?: number | string
+  ): Promise<string> {
     const resolved = await this.resolveDivision(division);
     const clean = resource.replace(/^\/+/, "");
     return `/${resolved}/${clean}`;
