@@ -13,7 +13,7 @@ export const divisionParam = z
   .union([z.number().int().positive(), z.string()])
   .optional()
   .describe(
-    "Division (administration) to query: a division code or a configured alias (EXACT_DIVISION_ALIASES). Defaults to the configured/current division; use exact_list_divisions to discover codes."
+    "Division (administration) to query: a division code, or a division name — names are matched automatically against the administration list (e.g. 'acme holding' or a unique part of the name). Defaults to the configured/current division."
   );
 
 /** MCP tool result shape (subset we use). */

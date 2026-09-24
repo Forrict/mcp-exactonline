@@ -113,6 +113,8 @@ export class ExactClient {
   private readonly apiBase: string;
   private cachedMe?: MeInfo;
   private lastRateRemaining?: number;
+  /** name -> division code, built once from system/Divisions. */
+  private divisionNameCache?: Map<string, number>;
 
   constructor(
     private readonly config: Config,
@@ -377,10 +379,48 @@ export class ExactClient {
     return info;
   }
 
+  /** Normalize a division name for matching: lowercase, non-alphanumerics -> space. */
+  private static normalizeName(name: string): string {
+    return name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
+  }
+
+  /**
+   * Build (once per client) a lookup of division names -> codes from
+   * system/Divisions, using Description and CustomerName.
+   */
+  private async divisionNames(): Promise<Map<string, number>> {
+    if (this.divisionNameCache) return this.divisionNameCache;
+    interface DivisionInfo {
+      Code?: number;
+      Description?: string;
+      CustomerName?: string;
+    }
+    const me = await this.getCurrentDivision();
+    const current = this.config.division ?? me?.CurrentDivision;
+    const list = await this.getAll<DivisionInfo>(
+      `/${current}/system/Divisions`,
+      { $select: "Code,Description,CustomerName" },
+      500
+    );
+    const map = new Map<string, number>();
+    for (const division of list.results) {
+      if (!division.Code) continue;
+      for (const name of [division.Description, division.CustomerName]) {
+        if (name) map.set(ExactClient.normalizeName(name), division.Code);
+      }
+    }
+    this.divisionNameCache = map;
+    return map;
+  }
+
   /**
    * Resolve the active division: an explicit per-call override (a division
-   * code, or an alias from EXACT_DIVISION_ALIASES) if given, else
-   * EXACT_DIVISION, else the user's CurrentDivision.
+   * code, an alias from EXACT_DIVISION_ALIASES, or a division name matched
+   * dynamically against system/Divisions) if given, else EXACT_DIVISION,
+   * else the user's CurrentDivision.
    */
   async resolveDivision(override?: number | string): Promise<number> {
     if (typeof override === "string" && override.trim()) {
@@ -389,13 +429,22 @@ export class ExactClient {
       if (aliased) return aliased;
       const parsed = Number(key);
       if (Number.isInteger(parsed) && parsed > 0) return parsed;
-      const known = Object.keys(this.config.divisionAliases);
+
+      // Dynamic lookup by division name (fetched once, cached).
+      const names = await this.divisionNames();
+      const normalized = ExactClient.normalizeName(override);
+      const exact = names.get(normalized);
+      if (exact) return exact;
+      // Fall back to a unique substring match ("acme" -> "Acme Holding B.V.").
+      const partial = [...names.entries()].filter(([name]) =>
+        name.includes(normalized)
+      );
+      const codes = new Set(partial.map(([, code]) => code));
+      if (codes.size === 1) return partial[0][1];
       throw new Error(
-        `Unknown division "${override}". ${
-          known.length
-            ? `Known aliases: ${known.join(", ")}.`
-            : "No aliases configured (set EXACT_DIVISION_ALIASES)."
-        } Use exact_list_divisions for division codes.`
+        `Unknown division "${override}"${
+          codes.size > 1 ? " (ambiguous name)" : ""
+        }. Known divisions: ${[...new Set(names.keys())].join(", ") || "none"}.`
       );
     }
     if (typeof override === "number" && override) return override;
