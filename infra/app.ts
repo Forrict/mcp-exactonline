@@ -1,4 +1,4 @@
-import { App, CfnOutput, Duration, RemovalPolicy, Stack, type StackProps } from "aws-cdk-lib";
+import { Annotations, App, CfnOutput, Duration, RemovalPolicy, Stack, type StackProps } from "aws-cdk-lib";
 import {
   Alarm,
   ComparisonOperator,
@@ -13,16 +13,16 @@ import { NodejsFunction, OutputFormat } from "aws-cdk-lib/aws-lambda-nodejs";
 import { FilterPattern, LogGroup, MetricFilter, RetentionDays } from "aws-cdk-lib/aws-logs";
 import { Secret } from "aws-cdk-lib/aws-secretsmanager";
 import { Topic } from "aws-cdk-lib/aws-sns";
+import { Trigger } from "aws-cdk-lib/triggers";
 import { EmailSubscription } from "aws-cdk-lib/aws-sns-subscriptions";
 import type { Construct } from "constructs";
 import { fileURLToPath } from "node:url";
 
 /**
  * Exact Online MCP server for Claude: one Lambda behind a public Function URL,
- * with config and OAuth tokens in a single, pre-existing Secrets Manager secret.
+ * with config and OAuth tokens in a single Secrets Manager secret.
  *
  * Settings via CDK context (`cdk deploy -c key=value`):
- *   secretName    (default "mcp-exactonline")
  *   exactRegion   (default "nl")
  *   exactDivision (default: the user's current division)
  *   readOnly      ("true" hides tools that create or modify data)
@@ -35,8 +35,23 @@ class ExactMcpStack extends Stack {
     const ctx = (key: string, fallback = ""): string =>
       String(this.node.tryGetContext(key) ?? fallback);
 
-    // Created by hand (see README) so a deploy never overwrites stored tokens.
-    const secret = Secret.fromSecretNameV2(this, "Secret", ctx("secretName", "mcp-exactonline"));
+    // CloudFormation generates SIGNING_KEY once; the function adds the OAuth
+    // client credentials and tokens, you add the Exact fields in the console.
+    // Do not change generateSecretString: that would regenerate the secret
+    // value and wipe everything stored in it.
+    const secret = new Secret(this, "Secret", {
+      description: "Exact Online MCP server: credentials, signing key and OAuth tokens",
+      generateSecretString: {
+        secretStringTemplate: JSON.stringify({
+          EXACT_CLIENT_ID: "",
+          EXACT_CLIENT_SECRET: "",
+          ALLOWED_EXACT_USER: "",
+        }),
+        generateStringKey: "SIGNING_KEY",
+        passwordLength: 64,
+        excludePunctuation: true,
+      },
+    });
 
     const logGroup = new LogGroup(this, "Logs", {
       retention: RetentionDays.TWO_WEEKS,
@@ -52,7 +67,7 @@ class ExactMcpStack extends Stack {
       timeout: Duration.seconds(60),
       logGroup,
       environment: {
-        EXACT_SECRET_ID: secret.secretName,
+        EXACT_SECRET_ID: secret.secretArn,
         EXACT_REGION: ctx("exactRegion", "nl"),
         EXACT_DIVISION: ctx("exactDivision"),
         EXACT_READ_ONLY: ctx("readOnly", "false"),
@@ -73,6 +88,16 @@ class ExactMcpStack extends Stack {
     // access token issued by the function itself (see src/auth/oauthServer.ts).
     const url = fn.addFunctionUrl({ authType: FunctionUrlAuthType.NONE });
 
+    // After each deploy that changes the function, let it fill in the generated
+    // OAuth client credentials so they are ready to copy into Claude.
+    new Trigger(this, "SetupTrigger", { handler: fn, executeAfter: [fn, secret] });
+    // The trigger invokes a function version with an IAM-role grant; the
+    // public Function URL permissions only concern the unqualified function.
+    Annotations.of(fn).acknowledgeWarning(
+      "@aws-cdk/aws-lambda:addPermissionsToVersionOrAlias",
+      "Only the setup trigger invokes the version, via its own IAM role."
+    );
+
     // Rotate the Exact refresh token weekly so it never expires between uses.
     new Rule(this, "KeepAlive", {
       schedule: Schedule.rate(Duration.days(7)),
@@ -83,6 +108,10 @@ class ExactMcpStack extends Stack {
       value: url.url,
       description:
         "Claude connector URL: <FunctionUrl>mcp. Exact redirect URI: <FunctionUrl>oauth/callback.",
+    });
+    new CfnOutput(this, "SecretConsoleUrl", {
+      value: `https://${this.region}.console.aws.amazon.com/secretsmanager/secret?name=${secret.secretName}&region=${this.region}`,
+      description: "Fill in the Exact fields and copy the OAuth client credentials here.",
     });
 
     // Security and health alarms (metric filters count the markers the
