@@ -178,6 +178,26 @@ export function registerFinancialTools(
           .string()
           .optional()
           .describe("Journal code to filter by (JournalCode eq '...')."),
+        description_contains: z
+          .string()
+          .optional()
+          .describe(
+            "Substring to match in the line Description (substringof)."
+          ),
+        account_name_contains: z
+          .string()
+          .optional()
+          .describe(
+            "Substring to match in the AccountName (customer/supplier)."
+          ),
+        min_amount: z
+          .number()
+          .optional()
+          .describe("Inclusive lower bound for AmountDC (AmountDC ge N)."),
+        max_amount: z
+          .number()
+          .optional()
+          .describe("Inclusive upper bound for AmountDC (AmountDC le N)."),
         top: z
           .number()
           .int()
@@ -218,6 +238,22 @@ export function registerFinancialTools(
         }
         if (journal_code) {
           filters.push(`JournalCode eq ${odataString(journal_code)}`);
+        }
+        if (args.description_contains) {
+          filters.push(
+            `substringof(${odataString(args.description_contains)}, Description)`
+          );
+        }
+        if (args.account_name_contains) {
+          filters.push(
+            `substringof(${odataString(args.account_name_contains)}, AccountName)`
+          );
+        }
+        if (args.min_amount !== undefined) {
+          filters.push(`AmountDC ge ${args.min_amount}`);
+        }
+        if (args.max_amount !== undefined) {
+          filters.push(`AmountDC le ${args.max_amount}`);
         }
         const max = top ?? 100;
         const path = await client.divisionPath("financialtransaction/TransactionLines", args.division);

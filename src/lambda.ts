@@ -99,6 +99,7 @@ async function initContext(): Promise<Context> {
     ...process.env,
     EXACT_CLIENT_ID: doc.EXACT_CLIENT_ID,
     EXACT_CLIENT_SECRET: doc.EXACT_CLIENT_SECRET,
+    EXACT_DIVISION_ALIASES: doc.EXACT_DIVISION_ALIASES,
   });
   const getToken = createTokenProvider(config, store);
   const oauth = new OAuthServer({
