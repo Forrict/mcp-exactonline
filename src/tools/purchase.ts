@@ -2,7 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { ExactClient } from "../client.js";
 import { toExactDate } from "../client.js";
-import { okJson, errText } from "./helpers.js";
+import { okJson, errText, divisionParam } from "./helpers.js";
 
 /**
  * Register the "purchase" tools on the MCP server: booked purchase entries
@@ -22,6 +22,7 @@ export function registerPurchaseTools(
         "purchase journal. Backed by GET /{division}/purchaseentry/PurchaseEntries. " +
         "Filter by date range (EntryDate), supplier, your reference, or entry number.",
       inputSchema: {
+        division: divisionParam,
         date_from: z
           .string()
           .optional()
@@ -67,7 +68,7 @@ export function registerPurchaseTools(
           filters.push(`EntryNumber eq ${entry_number}`);
         }
         const max = top ?? 50;
-        const path = await client.divisionPath("purchaseentry/PurchaseEntries");
+        const path = await client.divisionPath("purchaseentry/PurchaseEntries", args.division);
         const result = await client.getAll(
           path,
           {
@@ -97,6 +98,7 @@ export function registerPurchaseTools(
         "header plus all GL detail lines. Backed by GET " +
         "/{division}/purchaseentry/PurchaseEntries(guid'...') and PurchaseEntryLines.",
       inputSchema: {
+        division: divisionParam,
         entry_id: z
           .string()
           .describe("EntryID GUID of the purchase entry."),
@@ -105,9 +107,7 @@ export function registerPurchaseTools(
     async (args) => {
       try {
         const { entry_id } = args;
-        const entryPath = await client.divisionPath(
-          `purchaseentry/PurchaseEntries(guid'${entry_id}')`
-        );
+        const entryPath = await client.divisionPath(`purchaseentry/PurchaseEntries(guid'${entry_id}')`, args.division);
         const entry = await client.request("GET", entryPath, {
           params: {
             $select:
@@ -118,9 +118,7 @@ export function registerPurchaseTools(
               "PaymentReference,Status,Created,Creator,CreatorFullName,Modified,Modifier",
           },
         });
-        const linesPath = await client.divisionPath(
-          "purchaseentry/PurchaseEntryLines"
-        );
+        const linesPath = await client.divisionPath("purchaseentry/PurchaseEntryLines", args.division);
         const lines = await client.getAll(linesPath, {
           $filter: `EntryID eq guid'${entry_id}'`,
           $select:
@@ -142,6 +140,7 @@ export function registerPurchaseTools(
         "List purchase orders with receipt and invoice status. Backed by GET " +
         "/{division}/purchaseorder/PurchaseOrders. Filter by OrderDate range or supplier.",
       inputSchema: {
+        division: divisionParam,
         date_from: z
           .string()
           .optional()
@@ -171,7 +170,7 @@ export function registerPurchaseTools(
         if (date_to) filters.push(`OrderDate le ${toExactDate(date_to)}`);
         if (supplier_id) filters.push(`Supplier eq guid'${supplier_id}'`);
         const max = top ?? 50;
-        const path = await client.divisionPath("purchaseorder/PurchaseOrders");
+        const path = await client.divisionPath("purchaseorder/PurchaseOrders", args.division);
         const result = await client.getAll(
           path,
           {

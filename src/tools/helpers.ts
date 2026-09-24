@@ -3,6 +3,21 @@
  * modules (system + phase-2 crm/financial/sales/purchase/logistics).
  */
 
+import { z } from "zod";
+
+/**
+ * Optional per-call division (administration) override, shared by all
+ * division-scoped tools. Defaults to EXACT_DIVISION / the current division.
+ */
+export const divisionParam = z
+  .number()
+  .int()
+  .positive()
+  .optional()
+  .describe(
+    "Division (administration) code to query. Defaults to the configured/current division; use exact_list_divisions to discover codes."
+  );
+
 /** MCP tool result shape (subset we use). */
 export interface ToolResult {
   // Index signature required for assignability to the SDK's CallToolResult.

@@ -347,8 +347,12 @@ export class ExactClient {
     return info;
   }
 
-  /** Resolve the active division: EXACT_DIVISION if set, else CurrentDivision. */
-  async resolveDivision(): Promise<number> {
+  /**
+   * Resolve the active division: an explicit per-call override if given,
+   * else EXACT_DIVISION, else the user's CurrentDivision.
+   */
+  async resolveDivision(override?: number): Promise<number> {
+    if (override) return override;
     if (this.config.division) return this.config.division;
     const me = await this.getCurrentDivision();
     if (!me?.CurrentDivision) {
@@ -360,9 +364,9 @@ export class ExactClient {
   }
 
   /** Build a division-scoped resource path: /{division}/{resource}. */
-  async divisionPath(resource: string): Promise<string> {
-    const division = await this.resolveDivision();
+  async divisionPath(resource: string, division?: number): Promise<string> {
+    const resolved = await this.resolveDivision(division);
     const clean = resource.replace(/^\/+/, "");
-    return `/${division}/${clean}`;
+    return `/${resolved}/${clean}`;
   }
 }

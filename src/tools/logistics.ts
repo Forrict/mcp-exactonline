@@ -1,7 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { ExactClient } from "../client.js";
-import { okJson, errText } from "./helpers.js";
+import { okJson, errText, divisionParam } from "./helpers.js";
 
 /** Wide $select for a single item lookup. */
 const ITEM_DETAIL_SELECT =
@@ -32,6 +32,7 @@ export function registerLogisticsTools(
         "GET /{division}/logistics/Items. Search by code/description and filter " +
         "on sales/stock flags or item group.",
       inputSchema: {
+        division: divisionParam,
         search: z
           .string()
           .optional()
@@ -81,7 +82,7 @@ export function registerLogisticsTools(
           );
         }
         const max = top ?? 50;
-        const path = await client.divisionPath("logistics/Items");
+        const path = await client.divisionPath("logistics/Items", args.division);
         const result = await client.getAll(
           path,
           {
@@ -111,6 +112,7 @@ export function registerLogisticsTools(
         "either `id` (GUID) or `code` (exactly one is required). Backed by GET " +
         "/{division}/logistics/Items.",
       inputSchema: {
+        division: divisionParam,
         id: z
           .string()
           .optional()
@@ -130,16 +132,14 @@ export function registerLogisticsTools(
           );
         }
         if (id) {
-          const path = await client.divisionPath(
-            `logistics/Items(guid'${id}')`
-          );
+          const path = await client.divisionPath(`logistics/Items(guid'${id}')`, args.division);
           const item = await client.request("GET", path, {
             params: { $select: ITEM_DETAIL_SELECT },
           });
           return okJson(item);
         }
         const codeValue = code as string;
-        const path = await client.divisionPath("logistics/Items");
+        const path = await client.divisionPath("logistics/Items", args.division);
         const result = await client.getAll<ItemRow>(
           path,
           {
@@ -168,6 +168,7 @@ export function registerLogisticsTools(
         "List sales price list entries per item (optionally customer-specific). " +
         "Backed by GET /{division}/logistics/SalesItemPrices. Filter by item.",
       inputSchema: {
+        division: divisionParam,
         item_id: z
           .string()
           .optional()
@@ -187,7 +188,7 @@ export function registerLogisticsTools(
         const filters: string[] = [];
         if (item_id) filters.push(`Item eq guid'${item_id}'`);
         const max = top ?? 50;
-        const path = await client.divisionPath("logistics/SalesItemPrices");
+        const path = await client.divisionPath("logistics/SalesItemPrices", args.division);
         const result = await client.getAll(
           path,
           {
@@ -214,6 +215,7 @@ export function registerLogisticsTools(
         "List current stock levels per item per warehouse. Backed by GET " +
         "/{division}/inventory/ItemWarehouses. Filter by item.",
       inputSchema: {
+        division: divisionParam,
         item_id: z
           .string()
           .optional()
@@ -233,7 +235,7 @@ export function registerLogisticsTools(
         const filters: string[] = [];
         if (item_id) filters.push(`Item eq guid'${item_id}'`);
         const max = top ?? 100;
-        const path = await client.divisionPath("inventory/ItemWarehouses");
+        const path = await client.divisionPath("inventory/ItemWarehouses", args.division);
         const result = await client.getAll(
           path,
           {
