@@ -9,6 +9,7 @@ import { registerSystemTools } from "./tools/system.js";
 import { registerCrmTools } from "./tools/crm.js";
 import { registerFinancialTools } from "./tools/financial.js";
 import { registerReportingTools } from "./tools/reporting.js";
+import { registerMailboxTools } from "./tools/mailbox.js";
 import { registerSalesTools } from "./tools/sales.js";
 import { registerPurchaseTools } from "./tools/purchase.js";
 import { registerLogisticsTools } from "./tools/logistics.js";
@@ -85,6 +86,7 @@ export function createServer(
   registerCrmTools(server, client);
   registerFinancialTools(server, client);
   registerReportingTools(server, client);
+  registerMailboxTools(server, client);
   registerSalesTools(server, client);
   registerPurchaseTools(server, client);
   registerLogisticsTools(server, client);

@@ -20,6 +20,7 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server for [E
 | CRM | `exact_list_accounts`, `exact_get_account`, `exact_create_account`, `exact_update_account`, `exact_list_contacts`, `exact_create_contact` |
 | Financial | `exact_list_gl_accounts`, `exact_list_journals`, `exact_list_transaction_lines`, `exact_get_receivables`, `exact_get_payables`, `exact_get_aging_receivables`, `exact_get_financial_periods` |
 | Reporting | `exact_get_reporting_balance` (P&L / balance sheet), `exact_list_budgets`, `exact_list_bank_entries`, `exact_list_payments`, `exact_list_vat_codes` |
+| Mailbox | `exact_list_mail_messages` (digital postbox), `exact_list_mail_message_attachments` |
 | Sales | `exact_list_sales_invoices`, `exact_get_sales_invoice`, `exact_create_sales_invoice`, `exact_list_sales_orders`, `exact_get_sales_order` |
 | Purchase | `exact_list_purchase_entries`, `exact_get_purchase_entry`, `exact_list_purchase_orders` |
 | Logistics | `exact_list_items`, `exact_get_item`, `exact_list_sales_item_prices`, `exact_list_stock_positions` |
@@ -184,6 +185,6 @@ src/
 ├── config.ts         # env config, region base URLs
 ├── client.ts         # ExactClient: auth'd requests, pagination, OData, dates
 ├── auth/             # Exact OAuth2 refresh, token stores, CLI login, OAuth server for Claude
-└── tools/            # tool modules (system, crm, financial, reporting, sales, purchase, logistics)
+└── tools/            # tool modules (system, crm, financial, reporting, mailbox, sales, purchase, logistics)
 infra/app.ts          # AWS CDK stack for the Lambda deployment
 ```
