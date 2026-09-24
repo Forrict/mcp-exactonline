@@ -27,6 +27,8 @@ export interface Config {
   tokenStore: string;
   /** Optional bootstrap refresh token (single-use seed). */
   refreshToken?: string;
+  /** When true, tools that create or modify data are not registered. */
+  readOnly: boolean;
 }
 
 /** Expand a leading ~ to the user's home directory and return an absolute path. */
@@ -98,6 +100,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
 
   const refreshToken = env.EXACT_REFRESH_TOKEN?.trim() || undefined;
 
+  const readOnly = ["1", "true", "yes"].includes(
+    (env.EXACT_READ_ONLY?.trim() || "").toLowerCase()
+  );
+
   return {
     // clientId/clientSecret are guaranteed defined by the missing[] check above.
     clientId: clientId!,
@@ -108,5 +114,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     redirectUri,
     tokenStore,
     refreshToken,
+    readOnly,
   };
 }
