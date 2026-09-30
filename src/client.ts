@@ -104,6 +104,8 @@ export interface GetAllResult<T> {
   count: number;
   /** Remaining Exact API calls this minute, when reported by Exact. */
   rate_limit_minutely_remaining?: number;
+  /** Set when the result is empty, so silent failures stand out. */
+  warning?: string;
 }
 
 const sleep = (ms: number): Promise<void> =>
@@ -264,6 +266,10 @@ export class ExactClient {
   /**
    * Fetch a list resource, following `__next` pagination links until exhausted
    * or maxResults is reached. Returns results plus a truncation flag.
+   *
+   * `$top` is deliberately NOT forwarded to Exact: sending it has been observed
+   * to return empty result sets on some endpoints (e.g. ReportingBalance).
+   * The limit is enforced client-side via maxResults instead.
    */
   async getAll<T>(
     path: string,
@@ -273,16 +279,42 @@ export class ExactClient {
     const results: T[] = [];
     let truncated = false;
 
+    // Strip $top (see docblock); the caller's limit is applied client-side.
+    let sendParams = params;
+    if (params && params.$top !== undefined) {
+      const { $top, ...rest } = params;
+      void $top;
+      sendParams = rest;
+    }
+
     // First page uses params; subsequent pages use the absolute __next URL.
     let nextUrl: string | undefined;
-    let firstQuery = this.buildQuery(params);
+    let firstPage = true;
+    let firstQuery = this.buildQuery(sendParams);
     let currentPath: string = this.resolveUrl(path, firstQuery);
 
     // eslint-disable-next-line no-constant-condition
     while (true) {
       const token = await this.getToken();
       const res = await this.fetchRaw(currentPath, token);
-      const page = res.d?.results ?? [];
+      // Tolerant envelope handling: d.results, a bare d array, or a top-level
+      // array — Exact is not fully consistent across endpoints.
+      const d = (res as { d?: unknown }).d;
+      const page: unknown[] = Array.isArray(d)
+        ? d
+        : Array.isArray((d as { results?: unknown[] } | undefined)?.results)
+        ? (d as { results: unknown[] }).results
+        : Array.isArray(res)
+        ? (res as unknown[])
+        : [];
+      if (firstPage && page.length === 0) {
+        process.stderr.write(
+          `[exact] empty first page for ${currentPath.slice(0, 200)}; raw keys: ${Object.keys(
+            (res as object) ?? {}
+          ).join(",")}\n`
+        );
+      }
+      firstPage = false;
       for (const item of page) {
         if (results.length >= maxResults) {
           truncated = true;
@@ -292,7 +324,9 @@ export class ExactClient {
       }
       if (truncated) break;
 
-      nextUrl = res.d?.__next;
+      nextUrl = Array.isArray(d)
+        ? (res as { __next?: string }).__next
+        : (d as { __next?: string } | undefined)?.__next;
       if (!nextUrl) break;
       if (results.length >= maxResults) {
         truncated = true;
@@ -306,6 +340,10 @@ export class ExactClient {
       truncated,
       count: results.length,
       rate_limit_minutely_remaining: this.lastRateRemaining,
+      warning:
+        results.length === 0
+          ? "0 rows returned. If data was expected, the filter may not match, the user may lack rights, or the endpoint returned an unrecognized shape (raw shape logged server-side)."
+          : undefined,
     };
   }
 
