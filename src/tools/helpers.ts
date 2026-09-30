@@ -9,6 +9,21 @@ import { z } from "zod";
  * Optional per-call division (administration) override, shared by all
  * division-scoped tools. Defaults to EXACT_DIVISION / the current division.
  */
+/** Shared dry-run flag for all write tools: preview by default, post on false. */
+export const dryRunParam = z
+  .boolean()
+  .optional()
+  .describe(
+    "When true (the DEFAULT), nothing is posted: the tool returns a preview of the exact body it would send. Set false explicitly to post."
+  );
+
+/** Audit line for write actions (lands in CloudWatch on Lambda). */
+export function audit(tool: string, division: unknown, summary: string): void {
+  console.log(
+    JSON.stringify({ audit: { tool, division: division ?? "default", summary } })
+  );
+}
+
 export const divisionParam = z
   .union([z.number().int().positive(), z.string()])
   .optional()
