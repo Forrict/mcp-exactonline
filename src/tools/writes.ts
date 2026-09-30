@@ -1,7 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { ExactClient } from "../client.js";
-import { okJson, errText, divisionParam } from "./helpers.js";
+import { okJson, errText, divisionParam, dryRunParam, audit } from "./helpers.js";
 
 /**
  * Guarded write tools. Every tool here:
@@ -11,19 +11,6 @@ import { okJson, errText, divisionParam } from "./helpers.js";
  *
  * Tool names must match /^exact_(create|update)_/ so read-only mode hides them.
  */
-
-function audit(tool: string, division: unknown, summary: string): void {
-  console.log(
-    JSON.stringify({ audit: { tool, division: division ?? "default", summary } })
-  );
-}
-
-const dryRunParam = z
-  .boolean()
-  .optional()
-  .describe(
-    "When true (the DEFAULT), nothing is posted: the tool returns a preview of the exact body it would send. Set false explicitly to post."
-  );
 
 export function registerWriteMoreTools(
   server: McpServer,

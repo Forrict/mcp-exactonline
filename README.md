@@ -29,7 +29,7 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server for [E
 | Subscriptions | `exact_list_subscriptions`, `exact_list_subscription_lines`, `exact_list_shop_orders` |
 | Insights | `exact_pl_summary`, `exact_missing_bookings`, `exact_bank_status`, `exact_inbox`, `exact_match_suggestions`, `exact_group_report` (multi-division consolidation) |
 | Writes (guarded) | `exact_create_journal_entry`, `exact_create_purchase_entry`, `exact_create_match_set` — all dry-run by default, drafts only |
-| Sales | `exact_list_sales_invoices`, `exact_get_sales_invoice`, `exact_create_sales_invoice`, `exact_list_sales_orders`, `exact_get_sales_order` |
+| Sales | `exact_list_sales_invoices`, `exact_get_sales_invoice`, `exact_create_sales_invoice`, `exact_update_sales_invoice`, `exact_update_sales_invoice_line`, `exact_list_sales_orders`, `exact_get_sales_order` |
 | Purchase | `exact_list_purchase_entries`, `exact_get_purchase_entry`, `exact_list_purchase_orders` |
 | Logistics | `exact_list_items`, `exact_get_item`, `exact_list_sales_item_prices`, `exact_list_stock_positions` |
 
