@@ -35,7 +35,7 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server for [E
 
 Tools that create or modify data (`exact_create_*`, `exact_update_*`) say so explicitly in their descriptions so the client can ask for confirmation.
 
-Every division-scoped tool accepts an optional `division` parameter to query a specific administration; without it the configured (`EXACT_DIVISION`) or current division is used. Use `exact_list_divisions` to discover division codes. Friendly aliases can be configured via `EXACT_DIVISION_ALIASES` (e.g. `biemans-it=3326819,udamva=1234567` — as env var locally, or as a key in the Lambda secret), after which `division: "biemans-it"` works everywhere.
+Every division-scoped tool accepts an optional `division` parameter to query a specific administration; without it the configured (`EXACT_DIVISION`) or current division is used. Besides a numeric code you can pass a division *name*: names are fetched once from `system/Divisions` (cached per instance) and matched case-insensitively, including unique partial matches — so `division: "biemans"` just works. Manual overrides remain possible via `EXACT_DIVISION_ALIASES` (e.g. `biemans-it=3326819`), which take precedence.
 
 Responses are compacted automatically: OData `__metadata`/`__deferred` noise and null fields are stripped, and list results include `rate_limit_minutely_remaining` so clients can pace themselves. Write tools default to `dry_run: true` (returning the exact body they would post), create drafts only, and log an audit line to the server logs (CloudWatch on Lambda).
 
