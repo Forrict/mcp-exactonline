@@ -153,7 +153,8 @@ export function registerSalesTools(
         "customer. `ordered_by` is the customer account GUID; the invoice recipient (InvoiceTo) defaults " +
         "to the same account unless `invoice_to` is supplied. Provide one or more `lines`; each line may " +
         "reference an `item_id` (GUID), a free-text `description`, a `quantity` (default 1), an optional " +
-        "`unit_price`, an optional `gl_account_id` (GUID) and an optional `vat_code`. Only the fields you " +
+        "`unit_price`, `gl_account_id` (GUID), `vat_code`, `notes` (printed below the line) and `discount` " +
+        "(fraction, 0.2 = 20%). The header takes optional `remarks`. Only the fields you " +
         "provide are sent. DRY RUN BY DEFAULT: returns a preview; set dry_run=false to post. Returns the created invoice as returned by Exact.",
       inputSchema: {
         division: divisionParam,
@@ -176,6 +177,10 @@ export function registerSalesTools(
           .string()
           .optional()
           .describe("Optional customer reference (YourRef)."),
+        remarks: z
+          .string()
+          .optional()
+          .describe("Optional header remarks (Remarks), printed on the invoice."),
         invoice_date: z
           .string()
           .optional()
@@ -209,6 +214,16 @@ export function registerSalesTools(
                 .string()
                 .optional()
                 .describe("VAT code for this line (VATCode)."),
+              notes: z
+                .string()
+                .optional()
+                .describe("Line notes (Notes), printed below the line."),
+              discount: z
+                .number()
+                .optional()
+                .describe(
+                  "Line discount as a fraction (Discount), e.g. 0.2 for 20%."
+                ),
             })
           )
           .describe("One or more invoice lines to create."),
@@ -235,6 +250,8 @@ export function registerSalesTools(
           if (line.unit_price !== undefined) out.UnitPrice = line.unit_price;
           if (line.gl_account_id !== undefined) out.GLAccount = line.gl_account_id;
           if (line.vat_code !== undefined) out.VATCode = line.vat_code;
+          if (line.notes !== undefined) out.Notes = line.notes;
+          if (line.discount !== undefined) out.Discount = line.discount;
           return out;
         });
 
@@ -245,6 +262,7 @@ export function registerSalesTools(
         };
         if (description !== undefined) body.Description = description;
         if (your_ref !== undefined) body.YourRef = your_ref;
+        if (args.remarks !== undefined) body.Remarks = args.remarks;
         if (invoice_date !== undefined) body.InvoiceDate = invoice_date;
 
         if (args.dry_run !== false) {
