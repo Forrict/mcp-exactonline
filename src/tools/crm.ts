@@ -1,7 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { ExactClient } from "../client.js";
-import { okJson, errText, divisionParam } from "./helpers.js";
+import { okJson, errText, divisionParam, dryRunParam, audit } from "./helpers.js";
 
 /**
  * Escape a value for use inside an OData string literal (single quotes).
@@ -195,7 +195,7 @@ export function registerCrmTools(server: McpServer, client: ExactClient): void {
         "This WRITES data to the accounting system and is not reversible from here. " +
         "Backed by POST /{division}/crm/Accounts. Only `name` is required; `status` defaults to 'C' (customer). " +
         "`country` must be a 2-letter ISO country code (e.g. 'NL', 'DE'). " +
-        "Returns the newly created account record.",
+        "DRY RUN BY DEFAULT: returns a preview; set dry_run=false to post. Returns the newly created account record.",
       inputSchema: {
         division: divisionParam,
         name: z.string().describe("Account name (required)."),
@@ -223,6 +223,7 @@ export function registerCrmTools(server: McpServer, client: ExactClient): void {
           .optional()
           .describe("Chamber of Commerce registration number."),
         remarks: z.string().optional().describe("Free-text remarks / notes."),
+        dry_run: dryRunParam,
       },
     },
     async (args) => {
@@ -243,6 +244,15 @@ export function registerCrmTools(server: McpServer, client: ExactClient): void {
         }
         if (args.remarks !== undefined) body.Remarks = args.remarks;
 
+        if (args.dry_run !== false) {
+          return okJson({
+            dry_run: true,
+            would_post_to: "crm/Accounts",
+            body,
+            note: "Set dry_run=false to create this account.",
+          });
+        }
+        audit("exact_create_account", args.division, `account ${args.name}`);
         const path = await client.divisionPath("crm/Accounts", args.division);
         const result = await client.request("POST", path, { body });
         return okJson(result);
@@ -261,7 +271,7 @@ export function registerCrmTools(server: McpServer, client: ExactClient): void {
         "This WRITES data to the accounting system. Backed by PUT /{division}/crm/Accounts(guid'{id}'). " +
         "`id` is required; only the fields you provide are changed (others are left untouched). " +
         "`country` must be a 2-letter ISO country code. Exact returns no content on success, " +
-        "so this reports a success message rather than the updated record — re-read with exact_get_account to confirm.",
+        "so this reports a success message rather than the updated record — re-read with exact_get_account to confirm. DRY RUN BY DEFAULT: returns a preview; set dry_run=false to apply.",
       inputSchema: {
         division: divisionParam,
         id: z.string().describe("The account GUID to update (required)."),
@@ -290,6 +300,7 @@ export function registerCrmTools(server: McpServer, client: ExactClient): void {
           .optional()
           .describe("Chamber of Commerce registration number."),
         remarks: z.string().optional().describe("Free-text remarks / notes."),
+        dry_run: dryRunParam,
       },
     },
     async (args) => {
@@ -311,6 +322,15 @@ export function registerCrmTools(server: McpServer, client: ExactClient): void {
         }
         if (args.remarks !== undefined) body.Remarks = args.remarks;
 
+        if (args.dry_run !== false) {
+          return okJson({
+            dry_run: true,
+            would_put_to: `crm/Accounts(guid'${args.id}')`,
+            body,
+            note: "Set dry_run=false to apply this update.",
+          });
+        }
+        audit("exact_update_account", args.division, `account ${args.id}`);
         const path = await client.divisionPath(`crm/Accounts(guid'${args.id}')`, args.division);
         const result = await client.request<unknown>("PUT", path, { body });
         if (result === undefined) {
@@ -392,7 +412,7 @@ export function registerCrmTools(server: McpServer, client: ExactClient): void {
         "CREATE a new CRM contact person linked to an account in the connected Exact Online administration. " +
         "This WRITES data to the accounting system. Backed by POST /{division}/crm/Contacts. " +
         "`account_id` (GUID), `first_name` and `last_name` are required; the rest are optional. " +
-        "Returns the newly created contact record.",
+        "DRY RUN BY DEFAULT: returns a preview; set dry_run=false to post. Returns the newly created contact record.",
       inputSchema: {
         division: divisionParam,
         account_id: z
@@ -407,6 +427,7 @@ export function registerCrmTools(server: McpServer, client: ExactClient): void {
           .string()
           .optional()
           .describe("Job title / function (maps to JobTitleDescription)."),
+        dry_run: dryRunParam,
       },
     },
     async (args) => {
@@ -421,6 +442,19 @@ export function registerCrmTools(server: McpServer, client: ExactClient): void {
         if (args.mobile !== undefined) body.Mobile = args.mobile;
         if (args.job_title !== undefined) body.JobTitleDescription = args.job_title;
 
+        if (args.dry_run !== false) {
+          return okJson({
+            dry_run: true,
+            would_post_to: "crm/Contacts",
+            body,
+            note: "Set dry_run=false to create this contact.",
+          });
+        }
+        audit(
+          "exact_create_contact",
+          args.division,
+          `contact ${args.first_name} ${args.last_name}`
+        );
         const path = await client.divisionPath("crm/Contacts", args.division);
         const result = await client.request("POST", path, { body });
         return okJson(result);

@@ -2,7 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { ExactClient } from "../client.js";
 import { toExactDate } from "../client.js";
-import { okJson, errText, divisionParam } from "./helpers.js";
+import { okJson, errText, divisionParam, dryRunParam, audit } from "./helpers.js";
 
 /**
  * Register the "sales" tools on the MCP server. These cover sales invoices
@@ -154,7 +154,7 @@ export function registerSalesTools(
         "to the same account unless `invoice_to` is supplied. Provide one or more `lines`; each line may " +
         "reference an `item_id` (GUID), a free-text `description`, a `quantity` (default 1), an optional " +
         "`unit_price`, an optional `gl_account_id` (GUID) and an optional `vat_code`. Only the fields you " +
-        "provide are sent. Returns the created invoice as returned by Exact.",
+        "provide are sent. DRY RUN BY DEFAULT: returns a preview; set dry_run=false to post. Returns the created invoice as returned by Exact.",
       inputSchema: {
         division: divisionParam,
         ordered_by: z
@@ -212,6 +212,7 @@ export function registerSalesTools(
             })
           )
           .describe("One or more invoice lines to create."),
+        dry_run: dryRunParam,
       },
     },
     async (args) => {
@@ -246,6 +247,19 @@ export function registerSalesTools(
         if (your_ref !== undefined) body.YourRef = your_ref;
         if (invoice_date !== undefined) body.InvoiceDate = invoice_date;
 
+        if (args.dry_run !== false) {
+          return okJson({
+            dry_run: true,
+            would_post_to: "salesinvoice/SalesInvoices",
+            body,
+            note: "Set dry_run=false to create this draft invoice.",
+          });
+        }
+        audit(
+          "exact_create_sales_invoice",
+          args.division,
+          `invoice for ${ordered_by}, ${lines.length} lines`
+        );
         const path = await client.divisionPath("salesinvoice/SalesInvoices", args.division);
         const created = await client.request("POST", path, { body });
         return okJson(created);
