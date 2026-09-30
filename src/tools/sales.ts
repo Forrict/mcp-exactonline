@@ -405,4 +405,142 @@ export function registerSalesTools(
       }
     }
   );
+
+  server.registerTool(
+    "exact_update_sales_invoice",
+    {
+      title: "Update sales invoice (draft)",
+      description:
+        "UPDATE the header of an existing DRAFT (unprocessed) sales invoice via PUT " +
+        "/{division}/salesinvoice/SalesInvoices(guid'{id}'). Only the fields you provide " +
+        "are changed. Processed invoices cannot be changed — Exact will refuse. DRY RUN " +
+        "BY DEFAULT: returns a preview; set dry_run=false to apply. Exact returns no " +
+        "content on success; re-read with exact_get_sales_invoice to confirm.",
+      inputSchema: {
+        division: divisionParam,
+        id: z.string().describe("GUID of the draft invoice (InvoiceID)."),
+        description: z
+          .string()
+          .optional()
+          .describe("New header description (e.g. the month)."),
+        your_ref: z.string().optional().describe("New customer reference (YourRef)."),
+        remarks: z.string().optional().describe("New header remarks (Remarks)."),
+        invoice_date: z
+          .string()
+          .optional()
+          .describe("New invoice date as ISO date (InvoiceDate)."),
+        due_date: z
+          .string()
+          .optional()
+          .describe("New due date as ISO date (DueDate)."),
+        dry_run: dryRunParam,
+      },
+    },
+    async (args) => {
+      try {
+        const body: Record<string, unknown> = {};
+        if (args.description !== undefined) body.Description = args.description;
+        if (args.your_ref !== undefined) body.YourRef = args.your_ref;
+        if (args.remarks !== undefined) body.Remarks = args.remarks;
+        if (args.invoice_date !== undefined) body.InvoiceDate = args.invoice_date;
+        if (args.due_date !== undefined) body.DueDate = args.due_date;
+        if (Object.keys(body).length === 0) {
+          throw new Error("Nothing to update: provide at least one field.");
+        }
+        if (args.dry_run !== false) {
+          return okJson({
+            dry_run: true,
+            would_put_to: `salesinvoice/SalesInvoices(guid'${args.id}')`,
+            body,
+            note: "Set dry_run=false to apply this update (draft invoices only).",
+          });
+        }
+        audit("exact_update_sales_invoice", args.division, `invoice ${args.id}`);
+        const path = await client.divisionPath(
+          `salesinvoice/SalesInvoices(guid'${args.id}')`,
+          args.division
+        );
+        const result = await client.request<unknown>("PUT", path, { body });
+        if (result === undefined) {
+          return okJson({
+            success: true,
+            id: args.id,
+            message: "Invoice updated (Exact returned no content).",
+          });
+        }
+        return okJson(result);
+      } catch (e) {
+        return errText(e);
+      }
+    }
+  );
+
+  server.registerTool(
+    "exact_update_sales_invoice_line",
+    {
+      title: "Update sales invoice line (draft)",
+      description:
+        "UPDATE one line of a DRAFT (unprocessed) sales invoice via PUT " +
+        "/{division}/salesinvoice/SalesInvoiceLines(guid'{id}'). `id` is the LINE GUID " +
+        "(the ID on each line from exact_get_sales_invoice, not the invoice ID). Only the " +
+        "fields you provide are changed. DRY RUN BY DEFAULT: returns a preview; set " +
+        "dry_run=false to apply. Re-read the invoice afterwards to confirm.",
+      inputSchema: {
+        division: divisionParam,
+        id: z.string().describe("GUID of the invoice LINE to update."),
+        description: z.string().optional().describe("New line description."),
+        quantity: z.number().optional().describe("New quantity (Quantity)."),
+        unit_price: z.number().optional().describe("New unit price (UnitPrice)."),
+        discount: z
+          .number()
+          .optional()
+          .describe("New discount as a fraction (Discount), e.g. 0.2 for 20%."),
+        notes: z.string().optional().describe("New line notes (Notes)."),
+        vat_code: z.string().optional().describe("New VAT code (VATCode)."),
+        dry_run: dryRunParam,
+      },
+    },
+    async (args) => {
+      try {
+        const body: Record<string, unknown> = {};
+        if (args.description !== undefined) body.Description = args.description;
+        if (args.quantity !== undefined) body.Quantity = args.quantity;
+        if (args.unit_price !== undefined) body.UnitPrice = args.unit_price;
+        if (args.discount !== undefined) body.Discount = args.discount;
+        if (args.notes !== undefined) body.Notes = args.notes;
+        if (args.vat_code !== undefined) body.VATCode = args.vat_code;
+        if (Object.keys(body).length === 0) {
+          throw new Error("Nothing to update: provide at least one field.");
+        }
+        if (args.dry_run !== false) {
+          return okJson({
+            dry_run: true,
+            would_put_to: `salesinvoice/SalesInvoiceLines(guid'${args.id}')`,
+            body,
+            note: "Set dry_run=false to apply this update (draft invoices only).",
+          });
+        }
+        audit(
+          "exact_update_sales_invoice_line",
+          args.division,
+          `invoice line ${args.id}`
+        );
+        const path = await client.divisionPath(
+          `salesinvoice/SalesInvoiceLines(guid'${args.id}')`,
+          args.division
+        );
+        const result = await client.request<unknown>("PUT", path, { body });
+        if (result === undefined) {
+          return okJson({
+            success: true,
+            id: args.id,
+            message: "Invoice line updated (Exact returned no content).",
+          });
+        }
+        return okJson(result);
+      } catch (e) {
+        return errText(e);
+      }
+    }
+  );
 }
