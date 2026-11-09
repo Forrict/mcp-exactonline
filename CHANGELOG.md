@@ -12,6 +12,7 @@ All notable changes to this project are documented here. The format follows [Kee
 - Dependencies updated: `@modelcontextprotocol/sdk` 1.32, `zod` 4, AWS SDK and CDK; `npm audit --omit=dev` is clean.
 
 ### Changed
+- TypeScript 7 (the native compiler). `tsconfig.json` now lists `types: ["node"]` explicitly, since TypeScript 7 no longer picks up `@types/*` packages automatically. `@types/node` stays on the 22 line to match the Lambda runtime; Dependabot ignores its major updates.
 - Node.js 20 or newer is required (Node 18 is end-of-life).
 - OData string escaping lives in one helper (`odataString`) instead of being copied per module.
 - Examples in docs and comments use neutral placeholders instead of a real administration.

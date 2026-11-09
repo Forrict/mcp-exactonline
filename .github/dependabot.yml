@@ -4,6 +4,10 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    ignore:
+      # Node type definitions must match the runtime we ship on (Lambda: Node 22).
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     groups:
       aws:
         patterns: ["aws-cdk*", "@aws-sdk/*", "constructs"]
