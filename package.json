@@ -37,7 +37,7 @@
     "test": "tsx --test tests/*.test.ts"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "dependencies": {
     "@aws-sdk/client-secrets-manager": "^3.1164.0",

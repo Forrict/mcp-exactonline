@@ -12,7 +12,9 @@ npm test           # unit tests (node:test via tsx, no Exact account needed)
 npm run build
 ```
 
-Node.js 20 or newer is required.
+Node.js 22 or newer is required (CI runs 22 and 24; the Lambda runs on 22).
+
+The project compiles with TypeScript 7, the native compiler. Its npm package ships only `tsc`, no `tsserver`, so editors cannot use the workspace TypeScript version for language features. In VS Code install Microsoft's native TypeScript extension ("TypeScript (Native Preview)") or let the editor use its own bundled TypeScript; type errors are authoritative from `npm run typecheck` and CI either way.
 
 ## Guidelines
 
