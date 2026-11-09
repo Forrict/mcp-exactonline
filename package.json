@@ -2,6 +2,24 @@
   "name": "mcp-exactonline",
   "version": "0.1.0",
   "description": "MCP server for Exact Online (cloud accounting)",
+  "license": "MIT",
+  "author": "Fons Biemans",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FonsBiemans/mcp-exactonline.git"
+  },
+  "homepage": "https://github.com/FonsBiemans/mcp-exactonline#readme",
+  "bugs": {
+    "url": "https://github.com/FonsBiemans/mcp-exactonline/issues"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "exact-online",
+    "accounting",
+    "claude",
+    "aws-lambda"
+  ],
   "type": "module",
   "bin": {
     "mcp-exactonline": "dist/index.js"
@@ -14,24 +32,25 @@
     "start": "node dist/index.js",
     "auth": "node dist/auth/login.js",
     "dev": "tsx src/index.ts",
-    "typecheck": "tsc --noEmit && tsc -p infra",
-    "deploy": "cdk deploy"
+    "typecheck": "tsc --noEmit && tsc -p infra && tsc -p tests",
+    "deploy": "cdk deploy",
+    "test": "tsx --test tests/*.test.ts"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "dependencies": {
-    "@aws-sdk/client-secrets-manager": "^3.1139.0",
-    "@modelcontextprotocol/sdk": "^1.0.0",
-    "zod": "^3.23.0"
+    "@aws-sdk/client-secrets-manager": "^3.1164.0",
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
-    "aws-cdk": "^2.1143.0",
-    "aws-cdk-lib": "^2.270.0",
+    "aws-cdk": "^2.1148.0",
+    "aws-cdk-lib": "^2.275.0",
     "constructs": "^10.8.1",
     "esbuild": "^0.28.2",
-    "tsx": "^4.0.0",
-    "typescript": "^5.5.0"
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3"
   }
 }
