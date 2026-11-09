@@ -281,4 +281,14 @@ Vulnerabilities can be reported privately via GitHub's "Report a vulnerability" 
 
 ## License
 
-[PolyForm Small Business License 1.0.0](LICENSE)
+This project is licensed under the [PolyForm Small Business License 1.0.0](LICENSE) (SPDX: `PolyForm-Small-Business-1.0.0`). The source is public, and you may use, change and distribute it for the benefit of your company if that company has fewer than 100 people working for it (employees and contractors) and less than 1,000,000 USD (2019, inflation-adjusted) revenue in the prior tax year. Personal, non-commercial, educational and evaluation use is covered as well.
+
+Anyone who passes the software on must include the license (or its URL) and this line:
+
+```
+Required Notice: Copyright Forrict B.V. (https://forrict.nl)
+```
+
+Organisations above the small-business threshold, and anyone who needs different terms, can contact [info@forrict.nl](mailto:info@forrict.nl) for a commercial license.
+
+This is a source-available license, not an open-source license as defined by the OSI.
