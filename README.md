@@ -1,4 +1,4 @@
-# Exact Online MCP Server
+# MCP Server for Exact Online
 
 An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server for [Exact Online](https://www.exact.com), the cloud accounting platform. It lets MCP clients such as Claude Desktop and Claude Code read and manage CRM accounts, sales & purchase invoices, financial transactions, items, and more through the Exact Online REST API.
 
