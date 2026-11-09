@@ -66,6 +66,8 @@ cp .env.example .env
 
 ### 3. Build & authenticate (one-time)
 
+Requires Node.js 20 or newer.
+
 ```bash
 npm install
 npm run build
@@ -180,10 +182,13 @@ Once connected, ask your MCP client things like:
 ## Development
 
 ```bash
-npm run dev    # run from source with tsx
-npm run build  # compile to dist/
-npm run typecheck  # typecheck src/ and infra/
+npm run dev        # run from source with tsx
+npm run build      # compile to dist/
+npm run typecheck  # typecheck src/, infra/ and tests/
+npm test           # unit tests (node:test); no Exact account needed
 ```
+
+CI runs typecheck, tests, build and `npm audit --omit=dev` on every pull request. See [CONTRIBUTING.md](CONTRIBUTING.md) for the ground rules (no real credentials or administration data in the repo, validate every tool input that reaches OData, never log personal data).
 
 Project layout:
 
@@ -198,3 +203,11 @@ src/
 └── tools/            # tool modules (system, crm, financial, reporting, mailbox, sales, purchase, logistics)
 infra/app.ts          # AWS CDK stack for the Lambda deployment
 ```
+
+## Security
+
+Vulnerabilities can be reported privately via GitHub's "Report a vulnerability" on this repository; see [SECURITY.md](SECURITY.md) for scope and the known limits of the stateless token design.
+
+## License
+
+[PolyForm Small Business License 1.0.0](LICENSE)
