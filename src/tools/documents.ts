@@ -2,15 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { ExactClient } from "../client.js";
 import { toExactDate } from "../client.js";
-import { okJson, errText, divisionParam } from "./helpers.js";
-
-/**
- * Escape a string literal for an OData v3 `$filter` expression by doubling any
- * embedded single quotes. e.g. `O'Brien` -> `O''Brien`.
- */
-function odataString(value: string): string {
-  return `'${value.replace(/'/g, "''")}'`;
-}
+import { okJson, errText, divisionParam, guid, odataString } from "./helpers.js";
 
 /**
  * Register the "documents" tools on the MCP server: the document archive
@@ -39,8 +31,7 @@ export function registerDocumentTools(
           .describe(
             "Substring to search for in Subject (substringof('...', Subject))."
           ),
-        account_id: z
-          .string()
+        account_id: guid
           .optional()
           .describe("Account GUID to filter by (Account eq guid'...')."),
         date_from: z
@@ -113,8 +104,7 @@ export function registerDocumentTools(
         "/{division}/documents/DocumentAttachments.",
       inputSchema: {
         division: divisionParam,
-        document_id: z
-          .string()
+        document_id: guid
           .optional()
           .describe("Document GUID to filter by (Document eq guid'...')."),
         top: z

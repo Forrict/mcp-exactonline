@@ -2,15 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { ExactClient } from "../client.js";
 import { toExactDate } from "../client.js";
-import { okJson, errText, divisionParam } from "./helpers.js";
-
-/**
- * Escape a string literal for an OData v3 `$filter` expression by doubling any
- * embedded single quotes. e.g. `O'Brien` -> `O''Brien`.
- */
-function odataString(value: string): string {
-  return `'${value.replace(/'/g, "''")}'`;
-}
+import { okJson, errText, divisionParam, guid, odataString } from "./helpers.js";
 
 /**
  * Register the "project" tools on the MCP server: projects and the time
@@ -77,8 +69,7 @@ export function registerProjectTools(
         "Date. Backed by GET /{division}/project/TimeTransactions.",
       inputSchema: {
         division: divisionParam,
-        project_id: z
-          .string()
+        project_id: guid
           .optional()
           .describe("Project GUID to filter by (Project eq guid'...')."),
         date_from: z

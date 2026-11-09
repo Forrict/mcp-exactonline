@@ -1,7 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { ExactClient } from "../client.js";
-import { okJson, errText, divisionParam } from "./helpers.js";
+import { okJson, errText, divisionParam, guid, odataString } from "./helpers.js";
 
 /** Wide $select for a single item lookup. */
 const ITEM_DETAIL_SELECT =
@@ -64,10 +64,10 @@ export function registerLogisticsTools(
           args;
         const filters: string[] = [];
         if (search) {
-          const term = search.replace(/'/g, "''");
+          const term = odataString(search);
           filters.push(
-            `(substringof('${term}',Code) eq true or ` +
-              `substringof('${term}',Description) eq true)`
+            `(substringof(${term},Code) eq true or ` +
+              `substringof(${term},Description) eq true)`
           );
         }
         if (is_sales_item !== undefined) {
@@ -78,7 +78,7 @@ export function registerLogisticsTools(
         }
         if (item_group_code) {
           filters.push(
-            `ItemGroupCode eq '${item_group_code.replace(/'/g, "''")}'`
+            `ItemGroupCode eq ${odataString(item_group_code)}`
           );
         }
         const max = top ?? 50;
@@ -113,8 +113,7 @@ export function registerLogisticsTools(
         "/{division}/logistics/Items.",
       inputSchema: {
         division: divisionParam,
-        id: z
-          .string()
+        id: guid
           .optional()
           .describe("Item ID GUID."),
         code: z
@@ -143,7 +142,7 @@ export function registerLogisticsTools(
         const result = await client.getAll<ItemRow>(
           path,
           {
-            $filter: `Code eq '${codeValue.replace(/'/g, "''")}'`,
+            $filter: `Code eq ${odataString(codeValue)}`,
             $select: ITEM_DETAIL_SELECT,
             $top: 1,
           },
@@ -169,8 +168,7 @@ export function registerLogisticsTools(
         "Backed by GET /{division}/logistics/SalesItemPrices. Filter by item.",
       inputSchema: {
         division: divisionParam,
-        item_id: z
-          .string()
+        item_id: guid
           .optional()
           .describe("Item GUID to filter on (Item eq guid'...')."),
         top: z
@@ -216,8 +214,7 @@ export function registerLogisticsTools(
         "/{division}/inventory/ItemWarehouses. Filter by item.",
       inputSchema: {
         division: divisionParam,
-        item_id: z
-          .string()
+        item_id: guid
           .optional()
           .describe("Item GUID to filter on (Item eq guid'...')."),
         top: z

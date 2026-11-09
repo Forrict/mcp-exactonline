@@ -1,7 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { ExactClient } from "../client.js";
-import { okJson, errText, divisionParam } from "./helpers.js";
+import { okJson, errText, divisionParam, guid } from "./helpers.js";
 
 /**
  * Register the "HR" tools on the MCP server: employees, departments and
@@ -103,8 +103,7 @@ export function registerHrTools(
         "GET /{division}/hrm/LeaveRegistrations.",
       inputSchema: {
         division: divisionParam,
-        employee_id: z
-          .string()
+        employee_id: guid
           .optional()
           .describe("Employee GUID to filter by (Employee eq guid'...')."),
         top: z

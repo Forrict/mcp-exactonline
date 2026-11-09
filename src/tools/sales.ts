@@ -2,7 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { ExactClient } from "../client.js";
 import { toExactDate } from "../client.js";
-import { okJson, errText, divisionParam, dryRunParam, audit } from "./helpers.js";
+import { okJson, errText, divisionParam, dryRunParam, audit, guid } from "./helpers.js";
 
 /**
  * Register the "sales" tools on the MCP server. These cover sales invoices
@@ -40,8 +40,7 @@ export function registerSalesTools(
           .describe(
             "Only invoices with InvoiceDate on or before this ISO 8601 date/time (inclusive)."
           ),
-        customer_id: z
-          .string()
+        customer_id: guid
           .optional()
           .describe(
             "Filter on the invoice recipient account GUID (InvoiceTo), e.g. the customer's account id."
@@ -112,8 +111,7 @@ export function registerSalesTools(
         "of line items (item, description, quantity, unit price, amounts, VAT, GL account).",
       inputSchema: {
         division: divisionParam,
-        invoice_id: z
-          .string()
+        invoice_id: guid
           .describe("The sales invoice GUID (InvoiceID) to retrieve."),
       },
     },
@@ -190,8 +188,7 @@ export function registerSalesTools(
         lines: z
           .array(
             z.object({
-              item_id: z
-                .string()
+              item_id: guid
                 .optional()
                 .describe("Item GUID for this line (Item)."),
               description: z
@@ -206,8 +203,7 @@ export function registerSalesTools(
                 .number()
                 .optional()
                 .describe("Unit price for this line (UnitPrice)."),
-              gl_account_id: z
-                .string()
+              gl_account_id: guid
                 .optional()
                 .describe("General ledger account GUID for this line (GLAccount)."),
               vat_code: z
@@ -314,8 +310,7 @@ export function registerSalesTools(
           .describe(
             "Only orders with OrderDate on or before this ISO 8601 date/time (inclusive)."
           ),
-        customer_id: z
-          .string()
+        customer_id: guid
           .optional()
           .describe("Filter on the ordering account GUID (OrderedBy)."),
         status: z
@@ -375,8 +370,7 @@ export function registerSalesTools(
         "line items (item, description, quantity, unit price, amounts, discount).",
       inputSchema: {
         division: divisionParam,
-        order_id: z
-          .string()
+        order_id: guid
           .describe("The sales order GUID (OrderID) to retrieve."),
       },
     },
@@ -418,7 +412,7 @@ export function registerSalesTools(
         "content on success; re-read with exact_get_sales_invoice to confirm.",
       inputSchema: {
         division: divisionParam,
-        id: z.string().describe("GUID of the draft invoice (InvoiceID)."),
+        id: guid.describe("GUID of the draft invoice (InvoiceID)."),
         description: z
           .string()
           .optional()
@@ -487,7 +481,7 @@ export function registerSalesTools(
         "dry_run=false to apply. Re-read the invoice afterwards to confirm.",
       inputSchema: {
         division: divisionParam,
-        id: z.string().describe("GUID of the invoice LINE to update."),
+        id: guid.describe("GUID of the invoice LINE to update."),
         description: z.string().optional().describe("New line description."),
         quantity: z.number().optional().describe("New quantity (Quantity)."),
         unit_price: z.number().optional().describe("New unit price (UnitPrice)."),
