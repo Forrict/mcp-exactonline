@@ -16,7 +16,11 @@ All notable changes to this project are documented here. The format follows [Kee
 - OData string escaping lives in one helper (`odataString`) instead of being copied per module.
 - Examples in docs and comments use neutral placeholders instead of a real administration.
 
+### Removed
+- Internal planning document (`docs/`); it was not meant for publication.
+
 ### Added
+- README rewritten as a step-by-step rollout guide (Exact App Center, local and Lambda deployment, troubleshooting).
 - PolyForm Small Business License 1.0.0, security policy, contributing guide, CI workflow (typecheck, build, tests, audit) and Dependabot configuration.
 - Unit tests for the signed-token helpers, the OAuth server flow, date normalization and input validation.
 

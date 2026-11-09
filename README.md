@@ -39,53 +39,89 @@ Every division-scoped tool accepts an optional `division` parameter to query a s
 
 Responses are compacted automatically: OData `__metadata`/`__deferred` noise and null fields are stripped, and list results include `rate_limit_minutely_remaining` so clients can pace themselves. Write tools default to `dry_run: true` (returning the exact body they would post), create drafts only, and log an audit line to the server logs (CloudWatch on Lambda).
 
-## Setup
+## Getting started
 
-### 1. Register an Exact Online app
+There are two ways to run the server. Pick one (or both, with two separate Exact apps):
 
-1. Go to the [Exact App Center](https://apps.exactonline.com) → *Manage my apps* → *Register API keys* and create an app for your account.
-2. Set the **redirect URI** to `http://localhost:8123/callback` (or your own — must match `EXACT_REDIRECT_URI`).
-3. Note the **Client ID** and **Client Secret**.
+| | Option A: local (stdio) | Option B: AWS Lambda (remote) |
+|---|---|---|
+| Works with | Claude Desktop, Claude Code, any stdio MCP client | Claude.ai (web), Claude mobile/desktop apps as a *custom connector*, Claude Code over HTTP |
+| Runs on | your own machine | one Lambda function in your AWS account |
+| Who can use it | whoever runs the process | the single Exact Online user you allow |
+| Needs | Node.js 20+ | Node.js 20+, an AWS account and the AWS CLI |
 
-### 2. Configure
+Both options start with an Exact Online app registration.
+
+### Prerequisites
+
+- An **Exact Online** login with access to the administration(s) you want to query. Your Exact subscription must allow API access (most business editions do; if the App Center does not let you register an app, ask your Exact reseller).
+- **Node.js 20 or newer** and npm.
+- For option B: an **AWS account** with credentials configured for the AWS CLI (`aws sts get-caller-identity` should work) and permission to deploy CloudFormation stacks.
+
+### Step 1: Register an app in the Exact App Center
+
+Exact only talks to registered OAuth apps. You register your own, so no third party ever sees your data.
+
+1. Go to the [Exact App Center](https://apps.exactonline.com) and log in with your Exact Online account.
+2. Open **Manage my apps** and choose **Register API keys** (sometimes shown as "Register a new app" or "Test app"). A test app is enough: it can be used by users of your own Exact account.
+3. Fill in:
+   - **App name**: anything, e.g. `Claude MCP`.
+   - **Redirect URI**: depends on the option you choose:
+     - Option A (local): `http://localhost:8123/callback`
+     - Option B (Lambda): `<FunctionUrl>oauth/callback`, which you only know **after** the first deploy (see Step B.1). Register the app afterwards or come back and edit it.
+   - If the form asks which **scopes** or modules the app needs, select at least Financial, CRM and Sales; add Logistics, Projects, HR, Documents and Subscriptions if you want those tools to work.
+4. Save and note the **Client ID** and **Client Secret**. The secret is only shown once.
+
+Tips:
+- The redirect URI must match **exactly** (scheme, host, port, path, no trailing slash). After saving, re-open the app and check that the stored URI is complete; the field has been observed to cut off long URIs, which makes the login end in a "redirect URI mismatch" error.
+- One app has one redirect URI. If you want to run both options, register two apps.
+- Exact enforces API rate limits per app per administration (60 calls per minute, 5,000 per day by default). The server reports the remaining minutely budget in every list response.
+
+### Option A: run locally (stdio)
+
+**A.1 Install and configure**
 
 ```bash
-cp .env.example .env
+git clone https://github.com/FonsBiemans/mcp-exactonline.git
+cd mcp-exactonline
+npm install
+npm run build
+cp .env.example .env     # then fill in the values below
 ```
 
 | Variable | Required | Description |
 |---|---|---|
 | `EXACT_CLIENT_ID` | ✅ | OAuth client ID from the App Center |
 | `EXACT_CLIENT_SECRET` | ✅ | OAuth client secret |
-| `EXACT_REGION` | | `nl` (default), `be`, `uk`, `de`, `fr`, `es`, `us` |
-| `EXACT_DIVISION` | | Division (administration) code; defaults to your current division |
-| `EXACT_REDIRECT_URI` | | Default `http://localhost:8123/callback` |
+| `EXACT_REGION` | | `nl` (default), `be`, `uk`, `de`, `fr`, `es`, `us`. Must match the Exact site you log in to. |
+| `EXACT_DIVISION` | | Division (administration) code; defaults to your current division in Exact |
+| `EXACT_REDIRECT_URI` | | Default `http://localhost:8123/callback`; must equal the URI registered in Step 1 |
 | `EXACT_TOKEN_STORE` | | Token file path, default `~/.mcp-exactonline/tokens.json` |
 | `EXACT_REFRESH_TOKEN` | | Optional bootstrap refresh token (instead of running the login flow) |
+| `EXACT_DIVISION_ALIASES` | | Optional `name=code,...` aliases, e.g. `acme=1234567` |
 | `EXACT_READ_ONLY` | | `true` hides tools that create or modify data |
 
-### 3. Build & authenticate (one-time)
-
-Requires Node.js 20 or newer.
+**A.2 Log in to Exact once**
 
 ```bash
-npm install
-npm run build
-npm run auth   # prints an authorization URL; open it, log in, and approve
+set -a; source .env; set +a   # or export the variables another way
+npm run auth
 ```
 
-The tokens are stored in the token store file (mode 0600) and refreshed automatically from then on.
+This prints an authorization URL and starts a small local web server on the redirect port. Open the URL, log in to Exact Online (including 2FA), approve the app, and the browser is sent back to `localhost:8123`. The tokens are stored in the token store file (mode 0600) and refreshed automatically from then on.
 
-### 4. Option A: run locally (stdio)
+Exact refresh tokens expire after 30 days without use. If you have not used the server for a month, run `npm run auth` again.
 
-Claude Desktop (`claude_desktop_config.json`) or any MCP client:
+**A.3 Add the server to your MCP client**
+
+Claude Desktop (`claude_desktop_config.json`: *Settings → Developer → Edit Config*):
 
 ```json
 {
   "mcpServers": {
     "exact-online": {
       "command": "node",
-      "args": ["/path/to/mcp-exactonline/dist/index.js"],
+      "args": ["/absolute/path/to/mcp-exactonline/dist/index.js"],
       "env": {
         "EXACT_CLIENT_ID": "...",
         "EXACT_CLIENT_SECRET": "...",
@@ -99,20 +135,26 @@ Claude Desktop (`claude_desktop_config.json`) or any MCP client:
 Claude Code:
 
 ```bash
-claude mcp add exact-online -e EXACT_CLIENT_ID=... -e EXACT_CLIENT_SECRET=... -- node /path/to/mcp-exactonline/dist/index.js
+claude mcp add exact-online -e EXACT_CLIENT_ID=... -e EXACT_CLIENT_SECRET=... -e EXACT_REGION=nl -- node /absolute/path/to/mcp-exactonline/dist/index.js
 ```
 
-### Option B: run remotely on AWS Lambda (for Claude.ai / Claude apps)
+The client must run under the same OS user that ran `npm run auth` (or set `EXACT_TOKEN_STORE` to the same file), because that is where the tokens live. Add `EXACT_READ_ONLY=true` if the client should never be able to create or change data.
 
-The server can also run as a single AWS Lambda behind a public **Function URL**, so Claude connects to it over the internet as a *custom connector* — nothing runs on your own machine. The stack (AWS CDK, `infra/app.ts`) contains:
+**A.4 Verify**
+
+Restart the client and ask *"Which Exact Online user am I, and which administrations can I see?"*. The client should call `exact_get_current_user` and `exact_list_divisions`.
+
+### Option B: run on AWS Lambda (for Claude.ai and the Claude apps)
+
+The server runs as a single AWS Lambda behind a public **Function URL**, so Claude connects to it over the internet as a *custom connector*. Nothing runs on your own machine. The CDK stack (`infra/app.ts`) creates:
 
 - one Node.js 22 Lambda (`src/lambda.ts`), MCP Streamable HTTP in stateless JSON mode;
-- a small built-in **OAuth 2.1 authorization server** (`src/auth/oauthServer.ts`) protecting the MCP endpoint — you log in with your **Exact Online account**, and only the Exact user you configure is accepted;
+- a small built-in **OAuth 2.1 authorization server** (`src/auth/oauthServer.ts`) protecting the MCP endpoint. You log in with your **Exact Online account**, and only the Exact user you configure is accepted;
 - one Secrets Manager secret holding the credentials, a signing key and the Exact tokens (created by the stack; the keys are generated for you);
 - a weekly EventBridge rule that refreshes the Exact token so it never expires during quiet periods;
 - CloudWatch alarms for repeated auth failures, logins by a non-allowed Exact user, and function errors (optionally e-mailed to you).
 
-Cost for a single occasional user is effectively the Secrets Manager secret (~$0.40/month); Lambda, CloudWatch alarms/metrics and SNS e-mail stay within the free tier.
+Cost for a single occasional user is effectively the Secrets Manager secret (about $0.40/month); Lambda, CloudWatch and SNS stay within the free tier.
 
 #### How access is secured
 
@@ -121,45 +163,74 @@ Cost for a single occasional user is effectively the Secrets Manager secret (~$0
 3. After login the function checks the Exact user against `ALLOWED_EXACT_USER`. Anyone else gets `403` and nothing is stored. For you, the Exact tokens are saved (this also (re)connects the server to Exact) and Claude receives an authorization code.
 4. Claude exchanges the code (client secret + PKCE S256) for a 1-hour access token and a 30-day refresh token.
 
-Hardening details: only one pre-registered client; only Claude's redirect URIs (`https://claude.ai/api/mcp/auth_callback`, `https://claude.com/api/mcp/auth_callback`) and loopback URIs (Claude Code) are accepted; tokens are bound to type, client and audience (the `/mcp` URL). Tokens are stateless HMAC-signed values — **change `SIGNING_KEY` in the secret to revoke every issued token** (effective on the next cold start; redeploy to force it). This does not change the OAuth client credentials. Known limit of the stateless design: an authorization code can be redeemed more than once within its 5-minute lifetime, which still requires the client secret and the PKCE verifier.
+Hardening details: only one pre-registered client; only Claude's redirect URIs (`https://claude.ai/api/mcp/auth_callback`, `https://claude.com/api/mcp/auth_callback`) and loopback URIs (Claude Code) are accepted; tokens are bound to type, client and audience (the `/mcp` URL). Tokens are stateless HMAC-signed values: **change `SIGNING_KEY` in the secret to revoke every issued token** (effective on the next cold start; redeploy to force it). This does not change the OAuth client credentials. Known limit of the stateless design: an authorization code can be redeemed more than once within its 5-minute lifetime, which still requires the client secret and the PKCE verifier. See [SECURITY.md](SECURITY.md).
 
-#### Deploy
+#### B.1 Deploy the stack
 
-You never have to make up keys yourself: CloudFormation generates `SIGNING_KEY`, and right after the deploy the function fills in `OAUTH_CLIENT_ID` and `OAUTH_CLIENT_SECRET` (derived from the signing key, stored once). You only add the Exact values.
-
-**1. Deploy** (pick your region, e.g. `eu-west-1`):
+You never have to make up keys yourself: CloudFormation generates `SIGNING_KEY`, and right after the deploy the function fills in `OAUTH_CLIENT_ID` and `OAUTH_CLIENT_SECRET`. You only add the Exact values.
 
 ```bash
+git clone https://github.com/FonsBiemans/mcp-exactonline.git
+cd mcp-exactonline
 npm install
-npx cdk bootstrap        # once per account/region
-npx cdk deploy -c alarmEmail=you@example.com   # other options: -c exactRegion=nl -c exactDivision=123456 -c readOnly=true
+export AWS_REGION=eu-west-1        # any region; EU regions keep the data in the EU
+npx cdk bootstrap                  # once per AWS account + region
+npx cdk deploy -c alarmEmail=you@example.com
 ```
 
-Confirm the SNS subscription e-mail to receive alarms. Outputs:
+Optional context flags: `-c exactRegion=nl` (default `nl`), `-c exactDivision=1234567` (pin one administration), `-c readOnly=true` (never register write tools).
+
+Confirm the SNS subscription e-mail to receive alarms. The deploy prints two outputs:
 - `FunctionUrl`, e.g. `https://abc123.lambda-url.eu-west-1.on.aws/`
 - `SecretConsoleUrl`, a link to the secret in the AWS console
 
-**2. Register an app in the Exact App Center** with redirect URI `<FunctionUrl>oauth/callback`. (Local `npm run auth` uses the localhost redirect URI; use a separate Exact app if you need both.)
+#### B.2 Register (or update) the Exact app
 
-**3. Fill in the secret** via `SecretConsoleUrl` → *Retrieve secret value* → *Edit*:
+In the Exact App Center (Step 1), set the redirect URI of your app to `<FunctionUrl>oauth/callback`, for example `https://abc123.lambda-url.eu-west-1.on.aws/oauth/callback`. Check that the saved value is complete. If you also run option A, use a separate app for Lambda.
+
+#### B.3 Fill in the secret
+
+Open `SecretConsoleUrl` → *Retrieve secret value* → *Edit*:
 
 | Key | Value |
 |---|---|
 | `EXACT_CLIENT_ID`, `EXACT_CLIENT_SECRET` | from the Exact App Center |
-| `ALLOWED_EXACT_USER` | your Exact login name (UserName) or UserID; if unsure, leave empty — the first login is rejected and shows the value to use |
-| `OAUTH_CLIENT_ID`, `OAUTH_CLIENT_SECRET` | already filled in: copy them for step 4 |
+| `ALLOWED_EXACT_USER` | your Exact login name (UserName) or UserID. If unsure, leave empty: the first login is rejected and the page shows the value to use |
+| `OAUTH_CLIENT_ID`, `OAUTH_CLIENT_SECRET` | already filled in: copy them for step B.4 |
+| `EXACT_DIVISION_ALIASES` | optional, e.g. `acme=1234567,acme-holding=7654321` |
 | `SIGNING_KEY`, `tokens` | leave as is (managed automatically) |
 
-**4. Add the connector in Claude** (Customize → Connectors → *Add custom connector*): URL `<FunctionUrl>mcp`, and under *Advanced settings* the OAuth Client ID and Client Secret from the secret. Click *Connect* and log in with Exact Online.
+Changes to the secret are picked up without a redeploy (`ALLOWED_EXACT_USER` immediately, the rest on the next cold start).
 
-For Claude Code:
+#### B.4 Connect Claude
+
+Claude.ai / Claude apps: *Settings → Connectors → Add custom connector*. URL: `<FunctionUrl>mcp`. Under *Advanced settings* enter the OAuth Client ID and Client Secret from the secret. Click *Connect*, log in with Exact Online and approve. If the login page says your Exact user is not allowed, copy the shown UserName into `ALLOWED_EXACT_USER` and connect again.
+
+Claude Code:
 
 ```bash
 claude mcp add --transport http --client-id <OAUTH_CLIENT_ID> --client-secret --callback-port 8080 \
   exact-online <FunctionUrl>mcp
 ```
 
-Use `-c readOnly=true` if Claude should never create or change data. The function never logs query strings, bodies or tokens.
+#### B.5 Verify, update, remove
+
+- **Verify**: ask Claude *"Which Exact Online user am I?"*. In the AWS console the function's CloudWatch log group shows a line per Exact API call (remaining rate-limit budget) and an audit line per write; it never contains query strings, bodies or tokens.
+- **Update** to a newer version: `git pull && npm install && npx cdk deploy`. The secret and its tokens are kept.
+- **Revoke access**: change `SIGNING_KEY` in the secret to invalidate every issued Claude token, or clear `tokens` to disconnect from Exact. Reconnecting in Claude restores both.
+- **Remove everything**: `npx cdk destroy`. Afterwards delete the app in the Exact App Center as well.
+
+### Troubleshooting
+
+| Symptom | Cause and fix |
+|---|---|
+| Exact login ends in a *redirect URI mismatch* | The URI in the App Center differs from `EXACT_REDIRECT_URI` (option A) or `<FunctionUrl>oauth/callback` (option B). Compare character by character; check for truncation. |
+| `invalid_grant` when refreshing | The refresh token was used twice (two server instances sharing one token file), expired after 30 days, or revoked. Run `npm run auth` again, or reconnect the connector in Claude. |
+| `Rate limit exceeded: access_token not expired` | Harmless: Exact refuses to refresh while the token is still valid. The server handles it and keeps using the current token. |
+| `Exact API error 401/403` on one endpoint | Your Exact user or the app lacks rights for that module. Check the user's role in Exact and the app's scopes. |
+| `0 rows returned` warning | The filter matched nothing, the user cannot see that data, or the endpoint is not in your subscription. Try `exact_odata_query` without a filter. |
+| `This Exact Online user is not allowed` (option B) | Set `ALLOWED_EXACT_USER` in the secret to the UserName or UserID shown on that page. |
+| `Server misconfigured` (option B) | A required key in the secret is missing or too short. See the function logs in CloudWatch. |
 
 ## Usage examples
 
