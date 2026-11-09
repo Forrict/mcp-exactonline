@@ -22,7 +22,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Added
 - README rewritten as a step-by-step rollout guide (Exact App Center, local and Lambda deployment, troubleshooting).
-- PolyForm Small Business License 1.0.0, security policy, contributing guide, CI workflow (typecheck, build, tests, audit) and Dependabot configuration.
+- PolyForm Small Business License 1.0.0 (source available; free for companies under 100 people and 1M USD revenue, commercial terms via info@forrict.nl), security policy, contributing guide with contribution licensing terms, CI workflow (typecheck, build, tests, audit) and Dependabot configuration.
 - Unit tests for the signed-token helpers, the OAuth server flow, date normalization and input validation.
 
 ## [0.1.0]

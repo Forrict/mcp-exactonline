@@ -24,6 +24,16 @@ The project compiles with TypeScript 7, the native compiler. Its npm package shi
 - **Logs must never contain tokens, query strings, request bodies or personal data.**
 - Keep the README's tool table in sync when adding or renaming tools, and add a line to `CHANGELOG.md`.
 
+## Licensing of contributions
+
+The project is licensed under the [PolyForm Small Business License 1.0.0](LICENSE), and Forrict B.V. also offers it under other terms to organisations that fall outside that license. To keep that possible, every contribution is accepted on these terms:
+
+- You confirm that you wrote the contribution yourself, or otherwise have the right to submit it under these terms.
+- You license your contribution to Forrict B.V. and to all recipients under the PolyForm Small Business License 1.0.0.
+- You additionally grant Forrict B.V. a perpetual, worldwide, irrevocable, royalty-free right to use, modify, distribute, sublicense and relicense your contribution under any other terms, including commercial licenses.
+
+Opening a pull request means you agree to these terms for its contents. No separate contributor agreement is needed.
+
 ## Reporting security issues
 
 See [SECURITY.md](SECURITY.md). Please do not open public issues for vulnerabilities.
