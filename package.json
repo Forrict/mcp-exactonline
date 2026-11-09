@@ -3,14 +3,14 @@
   "version": "0.1.0",
   "description": "MCP server for Exact Online (cloud accounting)",
   "license": "PolyForm-Small-Business-1.0.0",
-  "author": "Fons Biemans",
+  "author": "Forrict",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/FonsBiemans/mcp-exactonline.git"
+    "url": "git+https://github.com/Forrict/mcp-exactonline.git"
   },
-  "homepage": "https://github.com/FonsBiemans/mcp-exactonline#readme",
+  "homepage": "https://github.com/Forrict/mcp-exactonline#readme",
   "bugs": {
-    "url": "https://github.com/FonsBiemans/mcp-exactonline/issues"
+    "url": "https://github.com/Forrict/mcp-exactonline/issues"
   },
   "keywords": [
     "mcp",

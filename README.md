@@ -82,7 +82,7 @@ Tips:
 **A.1 Install and configure**
 
 ```bash
-git clone https://github.com/FonsBiemans/mcp-exactonline.git
+git clone https://github.com/Forrict/mcp-exactonline.git
 cd mcp-exactonline
 npm install
 npm run build
@@ -170,7 +170,7 @@ Hardening details: only one pre-registered client; only Claude's redirect URIs (
 You never have to make up keys yourself: CloudFormation generates `SIGNING_KEY`, and right after the deploy the function fills in `OAUTH_CLIENT_ID` and `OAUTH_CLIENT_SECRET`. You only add the Exact values.
 
 ```bash
-git clone https://github.com/FonsBiemans/mcp-exactonline.git
+git clone https://github.com/Forrict/mcp-exactonline.git
 cd mcp-exactonline
 npm install
 export AWS_REGION=eu-west-1        # any region; EU regions keep the data in the EU
