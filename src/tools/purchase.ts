@@ -2,7 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { ExactClient } from "../client.js";
 import { toExactDate } from "../client.js";
-import { okJson, errText, divisionParam } from "./helpers.js";
+import { okJson, errText, divisionParam, guid, odataString } from "./helpers.js";
 
 /**
  * Register the "purchase" tools on the MCP server: booked purchase entries
@@ -31,8 +31,7 @@ export function registerPurchaseTools(
           .string()
           .optional()
           .describe("ISO date; EntryDate <= this value."),
-        supplier_id: z
-          .string()
+        supplier_id: guid
           .optional()
           .describe("Supplier account GUID to filter on (Supplier eq guid'...')."),
         your_ref: z
@@ -62,7 +61,7 @@ export function registerPurchaseTools(
         if (date_to) filters.push(`EntryDate le ${toExactDate(date_to)}`);
         if (supplier_id) filters.push(`Supplier eq guid'${supplier_id}'`);
         if (your_ref) {
-          filters.push(`YourRef eq '${your_ref.replace(/'/g, "''")}'`);
+          filters.push(`YourRef eq ${odataString(your_ref)}`);
         }
         if (entry_number !== undefined) {
           filters.push(`EntryNumber eq ${entry_number}`);
@@ -99,8 +98,7 @@ export function registerPurchaseTools(
         "/{division}/purchaseentry/PurchaseEntries(guid'...') and PurchaseEntryLines.",
       inputSchema: {
         division: divisionParam,
-        entry_id: z
-          .string()
+        entry_id: guid
           .describe("EntryID GUID of the purchase entry."),
       },
     },
@@ -149,8 +147,7 @@ export function registerPurchaseTools(
           .string()
           .optional()
           .describe("ISO date; OrderDate <= this value."),
-        supplier_id: z
-          .string()
+        supplier_id: guid
           .optional()
           .describe("Supplier account GUID to filter on (Supplier eq guid'...')."),
         top: z

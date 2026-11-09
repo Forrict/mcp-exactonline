@@ -7,6 +7,15 @@ import { okJson, errText, divisionParam } from "./helpers.js";
 export { okJson, errText } from "./helpers.js";
 
 /**
+ * Allowed shape of the generic OData resource path: path segments of
+ * letters/digits/underscores, optionally ending in a GUID key. Rules out `..`,
+ * query strings and anything else that would escape the /api/v1/{division}/
+ * prefix.
+ */
+const RESOURCE_RE =
+  /^[A-Za-z0-9_]+(?:\/[A-Za-z0-9_]+)*(?:\(guid'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'\))?$/;
+
+/**
  * Register the core "system" tools on the MCP server.
  * These provide identity, division discovery, and a generic OData escape hatch.
  */
@@ -68,8 +77,12 @@ export function registerSystemTools(
         division: divisionParam,
         resource: z
           .string()
+          .regex(
+            RESOURCE_RE,
+            "Must be a division-relative resource path such as 'crm/Accounts' or 'read/financial/ReceivablesList', optionally with a (guid'...') key."
+          )
           .describe(
-            "Division-relative resource path, e.g. 'crm/Accounts' or 'financial/GLAccounts'."
+            "Division-relative resource path, e.g. 'crm/Accounts' or 'financial/GLAccounts'. Letters, digits, underscores and slashes only; an optional (guid'...') key is allowed."
           ),
         filter: z
           .string()

@@ -1,7 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { ExactClient } from "../client.js";
-import { okJson, errText, divisionParam } from "./helpers.js";
+import { okJson, errText, divisionParam, guid } from "./helpers.js";
 
 /**
  * Register the "pipeline" tools on the MCP server: CRM sales pipeline data
@@ -68,8 +68,7 @@ export function registerPipelineTools(
         "by GET /{division}/crm/Opportunities.",
       inputSchema: {
         division: divisionParam,
-        account_id: z
-          .string()
+        account_id: guid
           .optional()
           .describe("Account GUID to filter by (Account eq guid'...')."),
         top: z
@@ -116,8 +115,7 @@ export function registerPipelineTools(
         "GET /{division}/crm/Addresses.",
       inputSchema: {
         division: divisionParam,
-        account_id: z
-          .string()
+        account_id: guid
           .optional()
           .describe("Account GUID to filter by (Account eq guid'...')."),
         top: z
@@ -161,8 +159,7 @@ export function registerPipelineTools(
         "/{division}/crm/BankAccounts.",
       inputSchema: {
         division: divisionParam,
-        account_id: z
-          .string()
+        account_id: guid
           .optional()
           .describe("Account GUID to filter by (Account eq guid'...')."),
         top: z
