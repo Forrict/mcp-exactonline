@@ -48,14 +48,14 @@ There are two ways to run the server. Pick one (or both, with two separate Exact
 | Works with | Claude Desktop, Claude Code, any stdio MCP client | Claude.ai (web), Claude mobile/desktop apps as a *custom connector*, Claude Code over HTTP |
 | Runs on | your own machine | one Lambda function in your AWS account |
 | Who can use it | whoever runs the process | the single Exact Online user you allow |
-| Needs | Node.js 20+ | Node.js 20+, an AWS account and the AWS CLI |
+| Needs | Node.js 22+ | Node.js 22+, an AWS account and the AWS CLI |
 
 Both options start with an Exact Online app registration.
 
 ### Prerequisites
 
 - An **Exact Online** login with access to the administration(s) you want to query. Your Exact subscription must allow API access (most business editions do; if the App Center does not let you register an app, ask your Exact reseller).
-- **Node.js 20 or newer** and npm.
+- **Node.js 22 or newer** and npm. (Node 22 is the runtime the Lambda deployment uses; CI tests 22 and 24.)
 - For option B: an **AWS account** with credentials configured for the AWS CLI (`aws sts get-caller-identity` should work) and permission to deploy CloudFormation stacks.
 
 ### Step 1: Register an app in the Exact App Center
