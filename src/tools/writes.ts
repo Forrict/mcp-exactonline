@@ -1,7 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { ExactClient } from "../client.js";
-import { okJson, errText, divisionParam, dryRunParam, audit } from "./helpers.js";
+import { okJson, errText, divisionParam, dryRunParam, audit, guid } from "./helpers.js";
 
 /**
  * Guarded write tools. Every tool here:
@@ -42,15 +42,13 @@ export function registerWriteMoreTools(
         lines: z
           .array(
             z.object({
-              gl_account_id: z
-                .string()
+              gl_account_id: guid
                 .describe("GL account GUID (ID from exact_list_gl_accounts)."),
               amount_dc: z
                 .number()
                 .describe("Amount in division currency; debit positive, credit negative."),
               description: z.string().optional().describe("Line description."),
-              account_id: z
-                .string()
+              account_id: guid
                 .optional()
                 .describe("Optional customer/supplier account GUID."),
               vat_code: z.string().optional().describe("Optional VAT code."),
@@ -122,7 +120,7 @@ export function registerWriteMoreTools(
         "process in Exact.",
       inputSchema: {
         division: divisionParam,
-        supplier_id: z.string().describe("Supplier account GUID."),
+        supplier_id: guid.describe("Supplier account GUID."),
         journal_code: z.string().describe("Purchase journal code."),
         your_ref: z
           .string()
@@ -134,14 +132,13 @@ export function registerWriteMoreTools(
           .describe("Entry/invoice date as ISO date."),
         due_date: z.string().optional().describe("Due date as ISO date."),
         description: z.string().optional().describe("Entry description."),
-        document_id: z
-          .string()
+        document_id: guid
           .optional()
           .describe("Optional GUID of the source document to link."),
         lines: z
           .array(
             z.object({
-              gl_account_id: z.string().describe("GL account GUID for the cost line."),
+              gl_account_id: guid.describe("GL account GUID for the cost line."),
               amount_fc: z.number().describe("Line amount."),
               description: z.string().optional(),
               vat_code: z.string().optional(),
@@ -207,11 +204,10 @@ export function registerWriteMoreTools(
         "dry_run=false to perform the match. Verify the result in Exact afterwards.",
       inputSchema: {
         division: divisionParam,
-        gl_account_id: z
-          .string()
+        gl_account_id: guid
           .describe("GL account GUID the lines are on (e.g. accounts receivable)."),
         transaction_line_ids: z
-          .array(z.string())
+          .array(guid)
           .min(2)
           .describe("GUIDs of the transaction lines to match against each other."),
         dry_run: dryRunParam,

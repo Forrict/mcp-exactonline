@@ -1,7 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { ExactClient } from "../client.js";
-import { okJson, errText, divisionParam } from "./helpers.js";
+import { okJson, errText, divisionParam, guid } from "./helpers.js";
 
 /**
  * Register the "subscription" tools on the MCP server: recurring
@@ -65,8 +65,7 @@ export function registerSubscriptionTools(
         "/{division}/subscription/SubscriptionLines.",
       inputSchema: {
         division: divisionParam,
-        subscription_id: z
-          .string()
+        subscription_id: guid
           .optional()
           .describe(
             "Subscription EntryID GUID to filter by (EntryID eq guid'...')."

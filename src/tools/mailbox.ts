@@ -1,7 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { ExactClient } from "../client.js";
-import { okJson, errText, divisionParam } from "./helpers.js";
+import { okJson, errText, divisionParam, guid } from "./helpers.js";
 
 /**
  * Register the "mailbox" tools on the MCP server: the digital postbox
@@ -75,8 +75,7 @@ export function registerMailboxTools(
         "from exact_list_mail_messages. Backed by GET /{division}/mailbox/MailMessageAttachments.",
       inputSchema: {
         division: divisionParam,
-        mail_message_id: z
-          .string()
+        mail_message_id: guid
           .optional()
           .describe(
             "Mail message GUID to filter by (MailMessageID eq guid'...')."
