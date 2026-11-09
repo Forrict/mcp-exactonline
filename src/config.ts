@@ -102,7 +102,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
 
   const refreshToken = env.EXACT_REFRESH_TOKEN?.trim() || undefined;
 
-  // EXACT_DIVISION_ALIASES="biemans-it=3326819,udamva=1234567"
+  // EXACT_DIVISION_ALIASES="acme=1234567,acme-holding=7654321"
   const divisionAliases: Record<string, number> = {};
   for (const pair of (env.EXACT_DIVISION_ALIASES ?? "").split(",")) {
     const [name, code] = pair.split("=").map((s) => s.trim());

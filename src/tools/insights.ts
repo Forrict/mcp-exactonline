@@ -2,11 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { ExactClient } from "../client.js";
 import { toExactDate } from "../client.js";
-import { okJson, errText, divisionParam } from "./helpers.js";
-
-function odataString(value: string): string {
-  return `'${value.replace(/'/g, "''")}'`;
-}
+import { okJson, errText, divisionParam, odataString } from "./helpers.js";
 
 interface BalanceRow {
   ReportingPeriod?: number;
@@ -608,7 +604,7 @@ export function registerInsightTools(
           )
           .optional()
           .describe(
-            "Intercompany elimination mapping, e.g. Biemans IT 4641/4400/4605/4606 vs Udamva 8100/83xx."
+            "Intercompany elimination mapping, e.g. the holding's management-fee revenue accounts vs the subsidiary's management-fee cost accounts."
           ),
       },
     },

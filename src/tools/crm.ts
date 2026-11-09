@@ -1,15 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { ExactClient } from "../client.js";
-import { okJson, errText, divisionParam, dryRunParam, audit } from "./helpers.js";
-
-/**
- * Escape a value for use inside an OData string literal (single quotes).
- * Exact/OData v3 escapes an embedded single quote by doubling it.
- */
-function odataString(value: string): string {
-  return `'${value.replace(/'/g, "''")}'`;
-}
+import { okJson, errText, divisionParam, dryRunParam, audit, guid, odataString } from "./helpers.js";
 
 /** Build a `substringof('term', Field) eq true` clause with a safe literal. */
 function substringOf(term: string, field: string): string {
@@ -167,8 +159,7 @@ export function registerCrmTools(server: McpServer, client: ExactClient): void {
         "Backed by GET /{division}/crm/Accounts(guid'{id}'). Use exact_list_accounts first to find the id.",
       inputSchema: {
         division: divisionParam,
-        id: z
-          .string()
+        id: guid
           .describe("The account GUID (ID field from exact_list_accounts)."),
       },
     },
@@ -252,7 +243,7 @@ export function registerCrmTools(server: McpServer, client: ExactClient): void {
             note: "Set dry_run=false to create this account.",
           });
         }
-        audit("exact_create_account", args.division, `account ${args.name}`);
+        audit("exact_create_account", args.division, `new account (status ${args.status ?? "-"})`);
         const path = await client.divisionPath("crm/Accounts", args.division);
         const result = await client.request("POST", path, { body });
         return okJson(result);
@@ -274,7 +265,7 @@ export function registerCrmTools(server: McpServer, client: ExactClient): void {
         "so this reports a success message rather than the updated record — re-read with exact_get_account to confirm. DRY RUN BY DEFAULT: returns a preview; set dry_run=false to apply.",
       inputSchema: {
         division: divisionParam,
-        id: z.string().describe("The account GUID to update (required)."),
+        id: guid.describe("The account GUID to update (required)."),
         name: z.string().optional().describe("Account name."),
         status: z
           .enum(["C", "P", "S", "A"])
@@ -359,8 +350,7 @@ export function registerCrmTools(server: McpServer, client: ExactClient): void {
         "job title and whether the contact is the account's main contact.",
       inputSchema: {
         division: divisionParam,
-        account_id: z
-          .string()
+        account_id: guid
           .optional()
           .describe("Account GUID to list contacts for (matches the Account field)."),
         search: z
@@ -415,8 +405,7 @@ export function registerCrmTools(server: McpServer, client: ExactClient): void {
         "DRY RUN BY DEFAULT: returns a preview; set dry_run=false to post. Returns the newly created contact record.",
       inputSchema: {
         division: divisionParam,
-        account_id: z
-          .string()
+        account_id: guid
           .describe("GUID of the account this contact belongs to (required)."),
         first_name: z.string().describe("Contact first name (required)."),
         last_name: z.string().describe("Contact last name (required)."),

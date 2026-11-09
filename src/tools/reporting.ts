@@ -2,15 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { ExactClient } from "../client.js";
 import { toExactDate } from "../client.js";
-import { okJson, errText, divisionParam } from "./helpers.js";
-
-/**
- * Escape a string literal for an OData v3 `$filter` expression by doubling any
- * embedded single quotes. e.g. `O'Brien` -> `O''Brien`.
- */
-function odataString(value: string): string {
-  return `'${value.replace(/'/g, "''")}'`;
-}
+import { okJson, errText, divisionParam, odataString } from "./helpers.js";
 
 /**
  * Register the "reporting" tools on the MCP server: aggregated financial

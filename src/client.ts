@@ -310,8 +310,10 @@ export class ExactClient {
         ? (res as unknown[])
         : [];
       if (firstPage && page.length === 0) {
+        // Log the path only: the query string may contain filter values such
+        // as customer names.
         process.stderr.write(
-          `[exact] empty first page for ${currentPath.slice(0, 200)}; raw keys: ${Object.keys(
+          `[exact] empty first page for ${currentPath.split("?")[0].slice(0, 200)}; raw keys: ${Object.keys(
             (res as object) ?? {}
           ).join(",")}\n`
         );
@@ -473,7 +475,7 @@ export class ExactClient {
       const normalized = ExactClient.normalizeName(override);
       const exact = names.get(normalized);
       if (exact) return exact;
-      // Fall back to a unique substring match ("biemans" -> "Biemans IT B.V.").
+      // Fall back to a unique substring match ("acme" -> "Acme Holding B.V.").
       const partial = [...names.entries()].filter(([name]) =>
         name.includes(normalized)
       );
