@@ -154,8 +154,6 @@ The server runs as a single AWS Lambda behind a public **Function URL**, so Clau
 - a weekly EventBridge rule that refreshes the Exact token so it never expires during quiet periods;
 - CloudWatch alarms for repeated auth failures, logins by a non-allowed Exact user, and function errors (optionally e-mailed to you).
 
-Cost for a single occasional user is effectively the Secrets Manager secret (about $0.40/month); Lambda, CloudWatch and SNS stay within the free tier.
-
 #### How access is secured
 
 1. Claude calls `/mcp` without a token, gets `401` and discovers the OAuth endpoints (`/.well-known/oauth-protected-resource`, `/.well-known/oauth-authorization-server`).
