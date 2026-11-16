@@ -40,7 +40,7 @@
     "node": ">=22"
   },
   "dependencies": {
-    "@aws-sdk/client-secrets-manager": "^3.1164.0",
+    "@aws-sdk/client-secrets-manager": "^3.1168.0",
     "@modelcontextprotocol/sdk": "^1.32.2",
     "zod": "^4.6.7"
   },
